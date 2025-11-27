@@ -8,6 +8,13 @@
     width: 100%;
 }
 
+/* Responsive adjustments for mobile - override inline styles */
+@media (max-width: 768px) {
+    .rca-inventory-grid {
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)) !important;
+    }
+}
+
 /* Card Styles (Matching Theme Aesthetic) */
 .rca-vehicle-card {
     background: #1e293b; /* Dark Navy Surface */

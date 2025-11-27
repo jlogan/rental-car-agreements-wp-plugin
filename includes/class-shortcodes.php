@@ -47,12 +47,27 @@ class RCA_Shortcodes {
 	 * [rental_car_inventory]
 	 */
 	public function render_inventory( $atts ) {
+		// Get settings from ACF options
+		$items_count = get_field( 'vehicles_count', 'option' );
+		$items_per_row = get_field( 'vehicles_per_row', 'option' );
+		
+		// Default values if not set
+		if ( $items_count === false || $items_count === null ) {
+			$items_count = -1;
+		}
+		if ( $items_per_row === false || $items_per_row === null ) {
+			$items_per_row = 3;
+		}
+
 		$query = new WP_Query( array(
 			'post_type'      => 'rental_vehicle',
-			'posts_per_page' => -1,
+			'posts_per_page' => intval( $items_count ),
 			'meta_key'       => '_rca_status',
 			'meta_value'     => 'available', 
 		) );
+
+		// Pass items_per_row to template
+		$items_per_row = intval( $items_per_row );
 
 		ob_start();
 		include RCA_PLUGIN_DIR . 'templates/inventory-grid.php';

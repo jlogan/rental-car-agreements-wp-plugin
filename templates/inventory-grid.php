@@ -2,9 +2,13 @@
 /**
  * Template: Inventory Grid with Modal Support
  */
+// Get items per row (passed from shortcode, default to 3)
+$items_per_row = isset( $items_per_row ) ? intval( $items_per_row ) : 3;
+// Apply grid columns via inline style (will be responsive on mobile via media query)
+$grid_style = 'grid-template-columns: repeat(' . esc_attr( $items_per_row ) . ', 1fr);';
 ?>
 <div class="rca-inventory-wrapper">
-    <div class="rca-inventory-grid">
+    <div class="rca-inventory-grid" style="<?php echo esc_attr( $grid_style ); ?>">
         <?php if ( $query->have_posts() ) : ?>
             <?php while ( $query->have_posts() ) : $query->the_post(); 
                 $meta = get_post_meta( get_the_ID() );
