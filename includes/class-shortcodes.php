@@ -10,9 +10,38 @@ class RCA_Shortcodes {
 		add_shortcode( 'rental_car_inventory', array( $this, 'render_inventory' ) );
 		add_shortcode( 'rental_car_booking', array( $this, 'render_booking_form' ) );
 		
-		// Handle form submission via Init or standard hook
+		// Handle form submission via Init
 		add_action( 'init', array( $this, 'process_booking_submission' ) );
+
+        // Handle AJAX for Modal
+        add_action( 'wp_ajax_rca_load_booking_form', array( $this, 'ajax_load_booking_form' ) );
+        add_action( 'wp_ajax_nopriv_rca_load_booking_form', array( $this, 'ajax_load_booking_form' ) );
+
+        // Output Modal in Footer
+        add_action( 'wp_footer', array( $this, 'render_modal_markup' ) );
 	}
+
+    /**
+     * Render Modal Markup in Footer
+     */
+    public function render_modal_markup() {
+        ?>
+        <div id="rca-booking-modal" class="rca-modal" style="display: none;">
+            <div class="rca-modal-content">
+                <div class="rca-modal-header-bar">
+                    <button type="button" class="rca-close-btn rca-close">
+                        <span>&times;</span> Close
+                    </button>
+                </div>
+                <div class="rca-modal-inner">
+                    <div id="rca-modal-body">
+                        <!-- AJAX content loads here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
 
 	/**
 	 * [rental_car_inventory]
@@ -22,7 +51,7 @@ class RCA_Shortcodes {
 			'post_type'      => 'rental_vehicle',
 			'posts_per_page' => -1,
 			'meta_key'       => '_rca_status',
-			'meta_value'     => 'available', // Only show available
+			'meta_value'     => 'available', 
 		) );
 
 		ob_start();
@@ -51,6 +80,19 @@ class RCA_Shortcodes {
 		include RCA_PLUGIN_DIR . 'templates/booking-form.php';
 		return ob_get_clean();
 	}
+
+    /**
+     * AJAX Callback to load form
+     */
+    public function ajax_load_booking_form() {
+        $vehicle_id = isset($_POST['vehicle_id']) ? intval($_POST['vehicle_id']) : 0;
+        if($vehicle_id) {
+            echo do_shortcode('[rental_car_booking vehicle_id="' . $vehicle_id . '"]');
+        } else {
+            echo 'Vehicle not found.';
+        }
+        wp_die();
+    }
 
 	public function process_booking_submission() {
 		if ( ! isset( $_POST['rca_submit_booking'] ) ) {
@@ -83,7 +125,7 @@ class RCA_Shortcodes {
 		$booking_id = wp_insert_post( array(
 			'post_type'   => 'rental_booking',
 			'post_title'  => $post_title,
-			'post_status' => 'publish', // Needs to be publish to be queryable easily, but hidden from frontend via public=>false
+			'post_status' => 'publish', 
 		) );
 
 		if ( $booking_id ) {
@@ -124,4 +166,3 @@ class RCA_Shortcodes {
 		wp_mail( $customer_email, $subject_customer, $message_customer );
 	}
 }
-
