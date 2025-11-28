@@ -270,6 +270,13 @@
     font-weight: 600;
 }
 
+/* Make asterisks red - using span wrapper approach */
+.rca-form-group label .rca-required-asterisk {
+    color: #ef4444;
+    font-weight: bold;
+    margin-left: 2px;
+}
+
 .rca-form-group input, 
 .rca-form-group select, 
 .rca-form-group textarea {
@@ -289,6 +296,58 @@
     border-color: #3b82f6;
     outline: none;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+}
+
+/* Invalid field highlighting */
+.rca-form-group.rca-has-error input,
+.rca-form-group.rca-has-error textarea,
+.rca-form-group.rca-has-error select,
+.rca-form-group input.rca-invalid-field,
+.rca-form-group textarea.rca-invalid-field,
+.rca-form-group select.rca-invalid-field {
+    border-color: #ef4444 !important;
+    background-color: rgba(239, 68, 68, 0.1) !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.2) !important;
+}
+
+.rca-form-group.rca-has-error input:focus,
+.rca-form-group.rca-has-error textarea:focus,
+.rca-form-group.rca-has-error select:focus,
+.rca-form-group input.rca-invalid-field:focus,
+.rca-form-group textarea.rca-invalid-field:focus,
+.rca-form-group select.rca-invalid-field:focus {
+    border-color: #ef4444 !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.3) !important;
+}
+
+.rca-insurance-option.rca-invalid-field {
+    border-color: #ef4444 !important;
+    background-color: rgba(239, 68, 68, 0.1) !important;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3) !important;
+}
+
+.rca-initial-field.rca-invalid-field,
+.rca-initial-field label.rca-invalid-field {
+    border-color: #ef4444 !important;
+    background-color: rgba(239, 68, 68, 0.1) !important;
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.3) !important;
+}
+
+.rca-checkbox-field.rca-invalid-field,
+.rca-checkbox-field label.rca-invalid-field {
+    border-color: #ef4444 !important;
+    background-color: rgba(239, 68, 68, 0.1) !important;
+}
+
+/* Date input calendar icon styling */
+.rca-form-group input[type="date"]::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+    opacity: 0.8;
+}
+
+.rca-form-group input[type="date"]::-webkit-calendar-picker-indicator:hover {
+    opacity: 1;
 }
 
 .rca-checkbox {
@@ -314,6 +373,261 @@
     font-size: 1.2rem;
     letter-spacing: 1px;
     width: 100%;
+}
+
+/* Agreement Header */
+.rca-agreement-header {
+    text-align: center;
+    padding: 2rem 0;
+    border-bottom: 2px solid rgba(255,255,255,0.1);
+    margin-bottom: 2.5rem;
+}
+
+.rca-agreement-header h2 {
+    font-size: 1.5rem;
+    color: white;
+    margin-bottom: 0.5rem;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+.rca-agreement-header h3 {
+    font-size: 1.25rem;
+    color: #3b82f6;
+    margin: 1rem 0;
+    text-transform: uppercase;
+}
+
+.rca-agreement-header p {
+    color: #94a3b8;
+    line-height: 1.6;
+    margin: 0.5rem 0;
+}
+
+/* Initial Fields */
+.rca-initial-field {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: rgba(59, 130, 246, 0.1);
+    border: 1px solid rgba(59, 130, 246, 0.3);
+    border-radius: 8px;
+    border-left: 4px solid #3b82f6;
+}
+
+.rca-initial-field label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: #cbd5e1;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.rca-initial-field input[type="checkbox"] {
+    width: 1.25rem;
+    height: 1.25rem;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+/* Checkbox Field (for optional checkboxes) */
+.rca-checkbox-field {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+}
+
+.rca-checkbox-field label {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    color: #cbd5e1;
+    font-size: 0.9rem;
+    cursor: pointer;
+}
+
+.rca-checkbox-field input[type="checkbox"] {
+    width: 1.25rem;
+    height: 1.25rem;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+/* Insurance Options */
+.rca-insurance-options {
+    margin: 1.5rem 0;
+}
+
+.rca-insurance-option {
+    margin-bottom: 1rem;
+    padding: 1rem;
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    transition: border-color 0.2s;
+}
+
+.rca-insurance-option:hover {
+    border-color: rgba(59, 130, 246, 0.5);
+}
+
+.rca-insurance-option label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    color: #cbd5e1;
+    font-size: 0.9rem;
+    cursor: pointer;
+    line-height: 1.5;
+}
+
+.rca-insurance-option input[type="radio"] {
+    width: 1.25rem;
+    height: 1.25rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    margin-top: 0.2rem;
+}
+
+.rca-insurance-option strong {
+    color: #3b82f6;
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+/* Violation List */
+.rca-violation-list {
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0;
+    padding-left: 0;
+}
+
+.rca-violation-list li {
+    padding: 0.75rem 1rem;
+    margin-bottom: 0.5rem;
+    background: rgba(239, 68, 68, 0.1);
+    border-left: 3px solid #ef4444;
+    border-radius: 4px;
+    color: #fca5a5;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.rca-violation-list li strong {
+    color: #fff;
+}
+
+/* Signature Section */
+.rca-signature-section {
+    background: rgba(59, 130, 246, 0.1);
+    border: 2px solid rgba(59, 130, 246, 0.3);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin-top: 2rem;
+}
+
+.rca-signature-section label {
+    font-size: 1rem;
+    color: #3b82f6;
+    font-weight: 700;
+}
+
+.rca-signature-section small {
+    display: block;
+    margin-top: 0.5rem;
+    color: #94a3b8;
+    font-style: italic;
+}
+
+/* Form Section Paragraphs */
+.rca-form-section p {
+    color: #cbd5e1;
+    line-height: 1.6;
+    margin: 1rem 0;
+    font-size: 0.9rem;
+}
+
+.rca-form-section p small {
+    color: #94a3b8;
+    font-size: 0.85rem;
+}
+
+.rca-form-section ul {
+    margin: 1rem 0;
+    padding-left: 0;
+}
+
+.rca-form-section ul li {
+    color: #cbd5e1;
+    line-height: 1.6;
+    margin-bottom: 0.5rem;
+}
+
+/* Vehicle Specs Display */
+.rca-vehicle-specs {
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1rem 0;
+}
+
+.rca-spec-item {
+    display: flex;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    color: #cbd5e1;
+    font-size: 0.95rem;
+}
+
+.rca-spec-item:last-child {
+    border-bottom: none;
+}
+
+.rca-spec-item strong {
+    min-width: 150px;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+.rca-spec-item span {
+    color: white;
+    font-weight: 500;
+}
+
+/* Loading State */
+.rca-loading {
+    padding: 3rem;
+    text-align: center;
+    color: #94a3b8;
+    font-size: 1.1rem;
+}
+
+/* Alert Messages */
+.rca-alert {
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 0;
+}
+
+.rca-alert-success {
+    background: rgba(16, 185, 129, 0.1);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    color: #10b981;
+}
+
+.rca-alert-error {
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    color: #ef4444;
+}
+
+/* Scroll to top on form load */
+.rca-booking-form-container {
+    scroll-margin-top: 2rem;
 }
 
 /* Responsive Adjustments */

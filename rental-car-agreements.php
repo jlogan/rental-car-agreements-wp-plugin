@@ -24,7 +24,7 @@ require_once RCA_PLUGIN_DIR . 'includes/helpers.php';
 require_once RCA_PLUGIN_DIR . 'includes/class-cpt-vehicles.php';
 require_once RCA_PLUGIN_DIR . 'includes/class-cpt-bookings.php';
 require_once RCA_PLUGIN_DIR . 'includes/class-settings-page.php';
-require_once RCA_PLUGIN_DIR . 'includes/class-shortcodes.php';
+require_once RCA_PLUGIN_DIR . 'includes/class-frontend.php';
 require_once RCA_PLUGIN_DIR . 'includes/class-agreement-template.php';
 
 /**
@@ -46,7 +46,7 @@ class Rental_Car_Agreements {
 		new RCA_CPT_Vehicles();
 		new RCA_CPT_Bookings();
 		new RCA_Settings_Page();
-		new RCA_Shortcodes();
+		new RCA_Frontend();
 		new RCA_Agreement_Template();
 
 		// Enqueue Assets

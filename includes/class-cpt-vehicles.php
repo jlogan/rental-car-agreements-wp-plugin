@@ -16,7 +16,7 @@ class RCA_CPT_Vehicles {
 		$labels = array(
 			'name'               => 'Vehicles',
 			'singular_name'      => 'Vehicle',
-			'menu_name'          => 'Vehicles',
+			'menu_name'          => 'Car Rental',
 			'add_new'            => 'Add New',
 			'add_new_item'       => 'Add New Vehicle',
 			'edit_item'          => 'Edit Vehicle',
