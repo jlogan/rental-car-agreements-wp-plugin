@@ -52,12 +52,28 @@ class RCA_Frontend {
     }
 
 	/**
-	 * [rental_car_inventory]
+	 * [rental_car_inventory count="-1" per_row="3"]
 	 */
 	public function render_inventory( $atts ) {
-		// Get settings from ACF options
-		$items_count = get_field( 'vehicles_count', 'option' );
-		$items_per_row = get_field( 'vehicles_per_row', 'option' );
+		// Parse shortcode attributes
+		$atts = shortcode_atts( array(
+			'count' => '',
+			'per_row' => '',
+		), $atts );
+		
+		// Get settings from shortcode attributes first, then fallback to ACF options
+		// Only use shortcode attribute if it's provided (not empty string)
+		if ( $atts['count'] !== '' && $atts['count'] !== null ) {
+			$items_count = intval( $atts['count'] );
+		} else {
+			$items_count = get_field( 'vehicles_count', 'option' );
+		}
+		
+		if ( $atts['per_row'] !== '' && $atts['per_row'] !== null ) {
+			$items_per_row = intval( $atts['per_row'] );
+		} else {
+			$items_per_row = get_field( 'vehicles_per_row', 'option' );
+		}
 		
 		// Default values if not set
 		if ( $items_count === false || $items_count === null ) {
@@ -672,17 +688,351 @@ class RCA_Frontend {
 
 	private function send_emails( $booking_id, $customer_email, $name ) {
 		$options = get_option( 'rca_settings' );
-		$admin_email = isset( $options['business_email'] ) ? $options['business_email'] : get_option( 'admin_email' );
+		$business_email = isset( $options['business_email'] ) && ! empty( $options['business_email'] ) ? $options['business_email'] : '';
+		
+		// Don't send email if business email is not set
+		if ( empty( $business_email ) ) {
+			return;
+		}
 
-		// Admin Notification
-		$subject = 'New Rental Booking Request: #' . $booking_id;
-		$message = "A new booking request has been received from $name.\n\nPlease login to the admin dashboard to view and approve it.";
-		wp_mail( $admin_email, $subject, $message );
+		// Get booking data for email
+		$renter_id = get_post_meta( $booking_id, '_rca_renter_id', true );
+		$phone = get_post_meta( $booking_id, '_rca_customer_phone', true );
+		$license = get_post_meta( $booking_id, '_rca_customer_license', true );
+		$address = get_post_meta( $booking_id, '_rca_customer_address', true );
+		$start_date = get_post_meta( $booking_id, '_rca_start_date', true );
+		$end_date = get_post_meta( $booking_id, '_rca_end_date', true );
+		$base_fee = get_post_meta( $booking_id, '_rca_base_fee_weekly', true );
+		$insurance_option = get_post_meta( $booking_id, '_rca_insurance_option', true );
+		$vehicle_make = get_post_meta( $booking_id, '_rca_vehicle_make', true );
+		$vehicle_model = get_post_meta( $booking_id, '_rca_vehicle_model', true );
+		$vehicle_year = get_post_meta( $booking_id, '_rca_vehicle_year', true );
+		$vehicle_vin = get_post_meta( $booking_id, '_rca_vehicle_vin', true );
+		$vehicle_color = get_post_meta( $booking_id, '_rca_vehicle_color', true );
+		$vehicle_plate = get_post_meta( $booking_id, '_rca_vehicle_plate', true );
+		$agreement_date = get_post_meta( $booking_id, '_rca_agreement_date', true );
 
-		// Customer Confirmation
-		$subject_customer = 'Booking Request Received';
-		$message_customer = "Hi $name,\n\nWe have received your booking request. We will review it and contact you shortly.\n\nThank you!";
-		wp_mail( $customer_email, $subject_customer, $message_customer );
+		// Format dates
+		$start_date_formatted = $start_date ? date( 'F j, Y', strtotime( $start_date ) ) : 'N/A';
+		$end_date_formatted = $end_date ? date( 'F j, Y', strtotime( $end_date ) ) : 'N/A';
+		$agreement_date_formatted = $agreement_date ? date( 'F j, Y', strtotime( $agreement_date ) ) : 'N/A';
+
+		// Generate PDF attachment
+		$pdf_path = $this->generate_pdf_for_email( $booking_id );
+		
+		// Create HTML email template
+		$html_message = $this->get_booking_email_template( array(
+			'booking_id' => $booking_id,
+			'renter_id' => $renter_id,
+			'name' => $name,
+			'email' => $customer_email,
+			'phone' => $phone,
+			'license' => $license,
+			'address' => $address,
+			'vehicle_year' => $vehicle_year,
+			'vehicle_make' => $vehicle_make,
+			'vehicle_model' => $vehicle_model,
+			'vehicle_vin' => $vehicle_vin,
+			'vehicle_color' => $vehicle_color,
+			'vehicle_plate' => $vehicle_plate,
+			'start_date' => $start_date_formatted,
+			'end_date' => $end_date_formatted,
+			'base_fee' => $base_fee,
+			'agreement_date' => $agreement_date_formatted,
+		) );
+
+		// Send email to business with PDF attachment
+		$vehicle_display = trim( $vehicle_year . ' ' . $vehicle_make . ' ' . $vehicle_model );
+		$subject = 'New Rental Booking Request: ' . $renter_id . ' - ' . $vehicle_display;
+		
+		$headers = array(
+			'Content-Type: text/html; charset=UTF-8',
+			'From: ' . get_bloginfo( 'name' ) . ' <' . get_option( 'admin_email' ) . '>',
+		);
+
+		$attachments = array();
+		if ( $pdf_path && file_exists( $pdf_path ) && is_readable( $pdf_path ) ) {
+			$attachments[] = $pdf_path;
+		}
+
+		// Send email
+		$mail_sent = wp_mail( $business_email, $subject, $html_message, $headers, $attachments );
+
+		// Clean up temporary PDF file after sending (wait a moment to ensure email is sent)
+		if ( $pdf_path && file_exists( $pdf_path ) ) {
+			// Use a small delay to ensure email processing is complete
+			sleep( 1 );
+			@unlink( $pdf_path );
+		}
+
+		// Customer confirmation email disabled for now
+		// $subject_customer = 'Booking Request Received';
+		// $message_customer = "Hi $name,\n\nWe have received your booking request. We will review it and contact you shortly.\n\nThank you!";
+		// wp_mail( $customer_email, $subject_customer, $message_customer );
+	}
+
+	/**
+	 * Generate PDF for email attachment (returns file path)
+	 */
+	private function generate_pdf_for_email( $booking_id ) {
+		// Load TCPDF if available
+		$tcpdf_path = RCA_PLUGIN_DIR . 'lib/tcpdf/tcpdf.php';
+		if ( ! file_exists( $tcpdf_path ) ) {
+			return false;
+		}
+
+		// Clear any existing output buffers
+		while ( ob_get_level() ) {
+			ob_end_clean();
+		}
+		
+		// Suppress errors but keep them logged
+		$old_error_reporting = error_reporting( E_ERROR | E_WARNING | E_PARSE );
+		$old_display_errors = ini_get( 'display_errors' );
+		ini_set( 'display_errors', 0 );
+
+		// Load autoconfig first
+		$autoconfig_path = RCA_PLUGIN_DIR . 'lib/tcpdf/tcpdf_autoconfig.php';
+		if ( file_exists( $autoconfig_path ) ) {
+			require_once $autoconfig_path;
+		}
+		require_once $tcpdf_path;
+
+		// Gather Data
+		$meta = array(
+			'name'       => get_post_meta( $booking_id, '_rca_customer_name', true ),
+			'address'    => get_post_meta( $booking_id, '_rca_customer_address', true ),
+			'phone'      => get_post_meta( $booking_id, '_rca_customer_phone', true ),
+			'email'      => get_post_meta( $booking_id, '_rca_customer_email', true ),
+			'license'    => get_post_meta( $booking_id, '_rca_customer_license', true ),
+			'start'      => get_post_meta( $booking_id, '_rca_start_date', true ),
+			'end'        => get_post_meta( $booking_id, '_rca_end_date', true ),
+			'insurance'  => get_post_meta( $booking_id, '_rca_insurance_option', true ),
+			'renter_id'  => get_post_meta( $booking_id, '_rca_renter_id', true ),
+			'agreement_date' => get_post_meta( $booking_id, '_rca_agreement_date', true ),
+			'signature'  => get_post_meta( $booking_id, '_rca_signature', true ),
+		);
+
+		$v_meta = array(
+			'make'   => get_post_meta( $booking_id, '_rca_vehicle_make', true ),
+			'model'  => get_post_meta( $booking_id, '_rca_vehicle_model', true ),
+			'year'   => get_post_meta( $booking_id, '_rca_vehicle_year', true ),
+			'color'  => get_post_meta( $booking_id, '_rca_vehicle_color', true ),
+			'vin'    => get_post_meta( $booking_id, '_rca_vehicle_vin', true ),
+			'plate'  => get_post_meta( $booking_id, '_rca_vehicle_plate', true ),
+			'rate_w' => get_post_meta( $booking_id, '_rca_vehicle_weekly_rate_snapshot', true ),
+			'title'  => get_post_meta( $booking_id, '_rca_vehicle_title_snapshot', true ),
+		);
+
+		$all_initials = get_post_meta( $booking_id, '_rca_all_initials', true );
+		if ( ! is_array( $all_initials ) ) {
+			$all_initials = array();
+		}
+
+		$settings = get_option( 'rca_settings' );
+		if ( ! is_array( $settings ) ) {
+			$settings = array();
+		}
+
+		// Generate HTML content
+		ob_start();
+		$print_mode = false;
+		include RCA_PLUGIN_DIR . 'templates/agreement-template.php';
+		$html_content = ob_get_clean();
+
+		// Extract body content and styles
+		preg_match( '/<style>(.*?)<\/style>/s', $html_content, $style_matches );
+		$styles = ! empty( $style_matches[1] ) ? $style_matches[1] : '';
+		
+		preg_match( '/<body[^>]*>(.*?)<\/body>/s', $html_content, $body_matches );
+		$body = ! empty( $body_matches[1] ) ? $body_matches[1] : '';
+
+		$full_html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><style>' . $styles . '</style></head><body>' . $body . '</body></html>';
+
+		// Create TCPDF instance
+		$pdf = new TCPDF( PDF_PAGE_ORIENTATION, PDF_UNIT, PDF_PAGE_FORMAT, true, 'UTF-8', false );
+		
+		// Set document information
+		$pdf->SetCreator( 'PNS Global Resources L.L.C' );
+		$pdf->SetAuthor( 'PNS Global Resources L.L.C' );
+		$pdf->SetTitle( 'Car Rental Agreement - ' . $meta['renter_id'] );
+		$pdf->SetSubject( 'Car Rental Agreement' );
+		
+		// Remove default header/footer
+		$pdf->setPrintHeader( false );
+		$pdf->setPrintFooter( false );
+		
+		// Set margins
+		$pdf->SetMargins( 15, 15, 15 );
+		$pdf->SetAutoPageBreak( true, 15 );
+		
+		// Set font
+		$pdf->SetFont( 'dejavusans', '', 11 );
+		
+		// Add a page
+		$pdf->AddPage();
+		
+		// Update HTML for PDF
+		$full_html = str_replace( "font-family: 'Times New Roman', Times, serif;", "font-family: 'dejavusans', 'Times New Roman', Times, serif;", $full_html );
+		$full_html = str_replace( '<span class="checkmark">&#10003;</span>', '<span style="font-family:dejavusans;font-size:12pt;font-weight:bold;color:#000;">✓</span>', $full_html );
+		
+		// Write HTML to PDF
+		$pdf->writeHTML( $full_html, true, false, true, false, '' );
+		
+		// Generate filename and save to temp directory
+		$upload_dir = wp_upload_dir();
+		$temp_dir = $upload_dir['basedir'] . '/rca-temp';
+		if ( ! file_exists( $temp_dir ) ) {
+			wp_mkdir_p( $temp_dir );
+		}
+		
+		$filename = 'Car-Rental-Agreement-' . sanitize_file_name( $meta['renter_id'] ) . '.pdf';
+		$file_path = $temp_dir . '/' . $filename;
+		
+		// Save PDF to file (use 'F' for file output)
+		@$pdf->Output( $file_path, 'F' );
+		
+		// Restore error reporting
+		error_reporting( $old_error_reporting );
+		ini_set( 'display_errors', $old_display_errors );
+		
+		// Verify file was created and is readable
+		if ( file_exists( $file_path ) && is_readable( $file_path ) && filesize( $file_path ) > 0 ) {
+			return $file_path;
+		}
+		
+		return false;
+	}
+
+	/**
+	 * Get HTML email template for booking notification
+	 */
+	private function get_booking_email_template( $data ) {
+		$html = '
+		<!DOCTYPE html>
+		<html>
+		<head>
+			<meta charset="UTF-8">
+			<meta name="viewport" content="width=device-width, initial-scale=1.0">
+			<style>
+				body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; background-color: #f4f4f4; margin: 0; padding: 0; }
+				.email-container { max-width: 600px; margin: 0 auto; background-color: #ffffff; }
+				.email-header { background-color: #1e293b; color: #ffffff; padding: 30px 20px; text-align: center; }
+				.email-header h1 { margin: 0; font-size: 24px; font-weight: bold; }
+				.email-body { padding: 30px 20px; }
+				.section { margin-bottom: 25px; }
+				.section-title { font-size: 18px; font-weight: bold; color: #1e293b; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 2px solid #3b82f6; }
+				.info-row { margin-bottom: 12px; }
+				.info-label { font-weight: bold; color: #64748b; display: inline-block; min-width: 150px; }
+				.info-value { color: #1e293b; }
+				.highlight-box { background-color: #f1f5f9; border-left: 4px solid #3b82f6; padding: 15px; margin: 20px 0; }
+				.footer { background-color: #f8fafc; padding: 20px; text-align: center; color: #64748b; font-size: 12px; }
+				.button { display: inline-block; background-color: #3b82f6; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 6px; margin-top: 20px; }
+			</style>
+		</head>
+		<body>
+			<div class="email-container">
+				<div class="email-header">
+					<h1>New Rental Booking Request</h1>
+				</div>
+				<div class="email-body">
+					<div class="section">
+						<div class="section-title">Booking Information</div>
+						<div class="info-row">
+							<span class="info-label">Booking ID:</span>
+							<span class="info-value">#' . esc_html( $data['booking_id'] ) . '</span>
+						</div>
+						<div class="info-row">
+							<span class="info-label">Renter ID:</span>
+							<span class="info-value">' . esc_html( $data['renter_id'] ) . '</span>
+						</div>
+						<div class="info-row">
+							<span class="info-label">Agreement Date:</span>
+							<span class="info-value">' . esc_html( $data['agreement_date'] ) . '</span>
+						</div>
+					</div>
+
+					<div class="section">
+						<div class="section-title">Customer Information</div>
+						<div class="info-row">
+							<span class="info-label">Name:</span>
+							<span class="info-value">' . esc_html( $data['name'] ) . '</span>
+						</div>
+						<div class="info-row">
+							<span class="info-label">Email:</span>
+							<span class="info-value">' . esc_html( $data['email'] ) . '</span>
+						</div>
+						<div class="info-row">
+							<span class="info-label">Phone:</span>
+							<span class="info-value">' . esc_html( $data['phone'] ) . '</span>
+						</div>
+						<div class="info-row">
+							<span class="info-label">Driver\'s License:</span>
+							<span class="info-value">' . esc_html( $data['license'] ) . '</span>
+						</div>
+						<div class="info-row">
+							<span class="info-label">Address:</span>
+							<span class="info-value">' . nl2br( esc_html( $data['address'] ) ) . '</span>
+						</div>
+					</div>
+
+					<div class="section">
+						<div class="section-title">Vehicle Information</div>
+						<div class="info-row">
+							<span class="info-label">Make and Model:</span>
+							<span class="info-value">' . esc_html( $data['vehicle_make'] . ' ' . $data['vehicle_model'] ) . '</span>
+						</div>
+						<div class="info-row">
+							<span class="info-label">Year:</span>
+							<span class="info-value">' . esc_html( $data['vehicle_year'] ) . '</span>
+						</div>
+						<div class="info-row">
+							<span class="info-label">VIN:</span>
+							<span class="info-value">' . esc_html( $data['vehicle_vin'] ) . '</span>
+						</div>
+						<div class="info-row">
+							<span class="info-label">Color:</span>
+							<span class="info-value">' . esc_html( $data['vehicle_color'] ) . '</span>
+						</div>
+						<div class="info-row">
+							<span class="info-label">Plate Number:</span>
+							<span class="info-value">' . esc_html( $data['vehicle_plate'] ) . '</span>
+						</div>
+					</div>
+
+					<div class="section">
+						<div class="section-title">Rental Details</div>
+						<div class="info-row">
+							<span class="info-label">Start Date:</span>
+							<span class="info-value">' . esc_html( $data['start_date'] ) . '</span>
+						</div>
+						<div class="info-row">
+							<span class="info-label">End Date:</span>
+							<span class="info-value">' . esc_html( $data['end_date'] ) . '</span>
+						</div>
+						<div class="info-row">
+							<span class="info-label">Weekly Rate:</span>
+							<span class="info-value">$' . esc_html( $data['base_fee'] ) . '</span>
+						</div>
+					</div>
+
+					<div class="highlight-box">
+						<strong>📎 PDF Attachment:</strong> The complete rental agreement PDF is attached to this email. You can download it by clicking on the attachment.
+					</div>
+
+					<div style="text-align: center; margin-top: 30px;">
+						<a href="' . admin_url( 'post.php?post=' . $data['booking_id'] . '&action=edit' ) . '" class="button">View Booking in Admin</a>
+					</div>
+				</div>
+				<div class="footer">
+					<p>This is an automated notification from ' . get_bloginfo( 'name' ) . '</p>
+					<p>Please do not reply to this email.</p>
+				</div>
+			</div>
+		</body>
+		</html>';
+
+		return $html;
 	}
 }
 
