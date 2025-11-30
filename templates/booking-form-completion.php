@@ -1,13 +1,13 @@
 <?php
 /**
- * Template: Car Rental Agreement Booking Form
- * Based on PNS GLOBAL RESOURCES L.L.C Car Rental Agreement PDF
+ * Template: Complete Booking Form (Pre-filled from lead)
  */
 ?>
 <div class="rca-booking-form-container">
-    <?php if ( isset( $_GET['rca_booking_success'] ) ) : ?>
-        <div class="rca-alert rca-alert-success">
-            Your booking request has been received successfully! We will contact you shortly.
+    <?php if ( isset( $_GET['completed'] ) && $_GET['completed'] == '1' ) : ?>
+        <div class="rca-alert rca-alert-success" style="max-width: 800px; margin: 2rem auto; padding: 2rem; text-align: center;">
+            <h3 style="color: #10b981; margin-bottom: 1rem;">Booking Completed Successfully!</h3>
+            <p style="color: #cbd5e1; line-height: 1.6;">Your rental agreement has been completed. We will contact you shortly to confirm your rental.</p>
         </div>
     <?php else : ?>
         
@@ -35,10 +35,14 @@
             </div>
         <?php endif; ?>
 
-        <form action="#" method="POST" class="rca-booking-form" id="rca-car-rental-agreement-form" onsubmit="return false;">
+        <form action="<?php echo esc_url( $_SERVER['REQUEST_URI'] ); ?>" method="POST" class="rca-booking-form" id="rca-car-rental-agreement-form" onsubmit="return false;">
             <?php wp_nonce_field( 'rca_submit_booking_action', 'rca_booking_nonce' ); ?>
+            <input type="hidden" id="rca_booking_nonce" name="rca_booking_nonce" value="<?php echo wp_create_nonce( 'rca_submit_booking_action' ); ?>">
+            <input type="hidden" name="_wp_http_referer" value="<?php echo esc_attr( $_SERVER['REQUEST_URI'] ); ?>">
             <input type="hidden" name="vehicle_id" value="<?php echo esc_attr( $vehicle_id ); ?>">
             <input type="hidden" name="rca_submit_booking" value="1">
+            <input type="hidden" name="rca_complete_booking" value="1">
+            <input type="hidden" name="rca_booking_id" value="<?php echo esc_attr( $booking_id ); ?>">
             <!-- Hidden field - Renter ID will be generated on submission -->
             <input type="hidden" name="rca_renter_id" value="">
 
@@ -73,11 +77,11 @@
                 <div class="rca-form-grid">
                     <div class="rca-form-group">
                         <label for="rca_start_date">Start Date <span class="rca-required-asterisk">*</span></label>
-                        <input type="date" name="rca_start_date" id="rca_start_date" required min="<?php echo date('Y-m-d'); ?>" title="Start date cannot be before today">
+                        <input type="date" name="rca_start_date" id="rca_start_date" value="<?php echo esc_attr( $start_date ); ?>" required readonly style="opacity: 0.6; cursor: not-allowed;" onfocus="this.blur();" onkeydown="return false;">
                     </div>
                     <div class="rca-form-group">
                         <label for="rca_end_date">End Date <span class="rca-required-asterisk">*</span></label>
-                        <input type="date" name="rca_end_date" id="rca_end_date" required min="<?php echo date('Y-m-d'); ?>" title="End date cannot be before today">
+                        <input type="date" name="rca_end_date" id="rca_end_date" value="<?php echo esc_attr( $end_date ); ?>" required readonly style="opacity: 0.6; cursor: not-allowed;" onfocus="this.blur();" onkeydown="return false;">
                     </div>
                 </div>
                 <p><small>Please be advised that in the event of an extension of the rental term, we require a minimum of 2 days' notice prior to the scheduled return date.</small></p>
@@ -147,25 +151,25 @@
             <!-- Section 8: Insurance Coverage -->
             <div class="rca-form-section">
                 <h4>INSURANCE COVERAGE</h4>
-                <p>Please read each insurance option below & initial beside the one you agree to. N/A the other 3 options.</p>
+                <p>Please read each insurance option below &amp; initial beside the one you agree to. N/A the other 3 options.</p>
                 
                 <div class="rca-insurance-options">
                     <div class="rca-insurance-option">
                         <label>
                             <input type="radio" name="rca_insurance_option" value="option1" required> 
-                            I agree to provide your own insurance covering you, us, & the vehicle in case of an accident. You are responsible for all damage or loss you cause to others. (Note: you are required to make the rental company a interested party on the policy for verification purposes of coverage & any changes that could occur to policy)
+                            I agree to provide your own insurance covering you, us, &amp; the vehicle in case of an accident. You are responsible for all damage or loss you cause to others. (Note: you are required to make the rental company a interested party on the policy for verification purposes of coverage &amp; any changes that could occur to policy)
                         </label>
                     </div>
                     <div class="rca-insurance-option">
                         <label>
                             <input type="radio" name="rca_insurance_option" value="option2" required> 
-                            I have decided to provide liability insurance & purchase RENTERS COLLISION PROTECTION available through this car rental company for $20 per day, including a service charge. I understand that this product will pay for any collision damage done to this rented vehicle up to a maximum $20,000 with a $250 deductible, as long as I or any 'Authorized Drivers' do not violate this contract. I also understand that the purchase of the RCP is non-refundable, even if the rental vehicle is returned early.
+                            I have decided to provide liability insurance &amp; purchase RENTERS COLLISION PROTECTION available through this car rental company for $20 per day, including a service charge. I understand that this product will pay for any collision damage done to this rented vehicle up to a maximum $20,000 with a $250 deductible, as long as I or any 'Authorized Drivers' do not violate this contract. I also understand that the purchase of the RCP is non-refundable, even if the rental vehicle is returned early.
                         </label>
                     </div>
                     <div class="rca-insurance-option">
                         <label>
                             <input type="radio" name="rca_insurance_option" value="option3" required> 
-                            I agree to allow the rental car company to create a personalized insurance policy covering you, us, & the vehicle in case of an accident.
+                            I agree to allow the rental car company to create a personalized insurance policy covering you, us, &amp; the vehicle in case of an accident.
                         </label>
                     </div>
                     <div class="rca-insurance-option">
@@ -221,7 +225,7 @@
 
             <!-- Section 12: Release & Waiver -->
             <div class="rca-form-section">
-                <h4>RELEASE & WAIVER</h4>
+                <h4>RELEASE &amp; WAIVER</h4>
                 <p>In consideration of being permitted to rent and use the Rental Item(s), Renter voluntarily and knowingly releases, waives, and discharges the Company PNS GLOBAL RESOURCES L.L.C from any and all liability, claims, demands, actions, or causes of action arising out of or related to any loss, damage, or injury, including death, that may be sustained while using, transporting, or in any way engaging with the Rental Item(s), whether caused by the Company's negligence or otherwise.</p>
                 <div class="rca-initial-field">
                     <label>
@@ -265,8 +269,8 @@
 
             <!-- Section 15: Check In & Check Out Process -->
             <div class="rca-form-section">
-                <h4>CHECK IN & CHECK OUT PROCESS</h4>
-                <p>A comprehensive inspection of the vehicle's condition is mandatory before & after rental period. Before the trip begins, a meticulous assessment of the vehicle's state is conducted in the presence of the customer to document any pre-existing damages or issues. After the trip ends, another detailed inspection occurs with the customer to evaluate the vehicle's condition post-trip. It's crucial that the customer remains present during inspection to address any potential damages or discrepancies that may have occurred during their use of the vehicle. If there are any damages done, the renter is responsible for $1000 as an additional charge. This process ensures transparency and fairness regarding the vehicle's condition and any associated costs.</p>
+                <h4>CHECK IN &amp; CHECK OUT PROCESS</h4>
+                <p>A comprehensive inspection of the vehicle's condition is mandatory before &amp; after rental period. Before the trip begins, a meticulous assessment of the vehicle's state is conducted in the presence of the customer to document any pre-existing damages or issues. After the trip ends, another detailed inspection occurs with the customer to evaluate the vehicle's condition post-trip. It's crucial that the customer remains present during inspection to address any potential damages or discrepancies that may have occurred during their use of the vehicle. If there are any damages done, the renter is responsible for $1000 as an additional charge. This process ensures transparency and fairness regarding the vehicle's condition and any associated costs.</p>
                 <div class="rca-initial-field">
                     <label>
                         <input type="checkbox" name="rca_checkin_checkout_initial" required> 
@@ -395,27 +399,23 @@
                 <div class="rca-form-grid">
                     <div class="rca-form-group">
                         <label for="rca_fullname">Name <span class="rca-required-asterisk">*</span></label>
-                        <input type="text" name="rca_fullname" id="rca_fullname" required minlength="2" maxlength="100" pattern="[A-Za-z\s\-']+" title="Please enter a valid name (letters, spaces, hyphens, and apostrophes only)">
+                        <input type="text" name="rca_fullname" id="rca_fullname" value="<?php echo esc_attr( $fullname ); ?>" required readonly style="opacity: 0.6; cursor: not-allowed;" minlength="2" maxlength="100" pattern="[A-Za-z\s\-']+" title="Please enter a valid name (letters, spaces, hyphens, and apostrophes only)">
                     </div>
                     <div class="rca-form-group">
                         <label for="rca_license">Driver's License Number <span class="rca-required-asterisk">*</span></label>
-                        <input type="text" name="rca_license" id="rca_license" required>
+                        <input type="text" name="rca_license" id="rca_license" value="<?php echo esc_attr( $license ); ?>" required readonly style="opacity: 0.6; cursor: not-allowed;">
                     </div>
                     <div class="rca-form-group full-width">
                         <label for="rca_address">Address <span class="rca-required-asterisk">*</span></label>
-                        <textarea name="rca_address" id="rca_address" rows="2" required></textarea>
+                        <textarea name="rca_address" id="rca_address" rows="2" required readonly style="opacity: 0.6; cursor: not-allowed;"><?php echo esc_textarea( $address ); ?></textarea>
                     </div>
                     <div class="rca-form-group">
                         <label for="rca_phone">Phone <span class="rca-required-asterisk">*</span></label>
-                        <input type="tel" name="rca_phone" id="rca_phone" required>
+                        <input type="tel" name="rca_phone" id="rca_phone" value="<?php echo esc_attr( $phone ); ?>" required readonly style="opacity: 0.6; cursor: not-allowed;">
                     </div>
                     <div class="rca-form-group">
                         <label for="rca_email">Email <span class="rca-required-asterisk">*</span></label>
-                        <input type="email" name="rca_email" id="rca_email" required maxlength="100" title="Please enter a valid email address">
-                    </div>
-                    <div class="rca-form-group">
-                        <label for="rca_agreement_date">Date <span class="rca-required-asterisk">*</span></label>
-                        <input type="date" name="rca_agreement_date" id="rca_agreement_date" value="<?php echo date('Y-m-d'); ?>" required max="<?php echo date('Y-m-d'); ?>" title="Date cannot be in the future">
+                        <input type="email" name="rca_email" id="rca_email" value="<?php echo esc_attr( $email ); ?>" required readonly style="opacity: 0.6; cursor: not-allowed;" maxlength="100" title="Please enter a valid email address">
                     </div>
                 </div>
             </div>
@@ -451,3 +451,7 @@
         </form>
     <?php endif; ?>
 </div>
+
+
+
+

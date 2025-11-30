@@ -120,11 +120,25 @@ document.addEventListener('DOMContentLoaded', function() {
             let isValid = true;
             let firstInvalidField = null;
             
-            // Validate text/email/tel/date/textarea fields
+            // Validate text/email/tel/date/textarea fields (skip readonly/disabled fields)
             const requiredFields = form.querySelectorAll('input[required]:not([type="hidden"]):not([type="checkbox"]):not([type="radio"]), textarea[required], select[required]');
             requiredFields.forEach(field => {
-                const isEmpty = !field.value || field.value.trim() === '';
-                const isInvalid = !field.checkValidity() || isEmpty;
+                // Skip readonly or disabled fields
+                if (field.readOnly || field.disabled || field.hasAttribute('readonly') || field.hasAttribute('disabled')) {
+                    return;
+                }
+                
+                // Trigger validation by checking validity
+                const isEmpty = !field.value || (typeof field.value === 'string' && field.value.trim() === '');
+                let isInvalid = false;
+                
+                // For date fields, check if value is set
+                if (field.type === 'date') {
+                    isInvalid = isEmpty || !field.value;
+                } else {
+                    // Use native HTML5 validation
+                    isInvalid = isEmpty || !field.checkValidity();
+                }
                 
                 if (isInvalid) {
                     isValid = false;
@@ -136,59 +150,67 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!firstInvalidField) {
                         firstInvalidField = field;
                     }
+                    console.log('Invalid field:', field.name, 'Value:', field.value, 'Empty:', isEmpty);
                 }
             });
             
-            // Validate radio groups (insurance option)
-            const insuranceRadios = form.querySelectorAll('input[name="rca_insurance_option"]');
-            const insuranceChecked = Array.from(insuranceRadios).some(radio => radio.checked);
-            if (!insuranceChecked) {
-                isValid = false;
-                insuranceRadios.forEach(radio => {
-                    const optionDiv = radio.closest('.rca-insurance-option');
-                    if (optionDiv) {
-                        optionDiv.classList.add('rca-invalid-field');
+            // Check if this is a simplified form (lead capture)
+            const isSimpleForm = form.querySelector('input[name="rca_is_simple_form"]') && form.querySelector('input[name="rca_is_simple_form"]').value === '1';
+            
+            // Validate radio groups (insurance option) - only for full form
+            if (!isSimpleForm) {
+                const insuranceRadios = form.querySelectorAll('input[name="rca_insurance_option"]');
+                const insuranceChecked = Array.from(insuranceRadios).some(radio => radio.checked);
+                if (!insuranceChecked) {
+                    isValid = false;
+                    insuranceRadios.forEach(radio => {
+                        const optionDiv = radio.closest('.rca-insurance-option');
+                        if (optionDiv) {
+                            optionDiv.classList.add('rca-invalid-field');
+                        }
+                    });
+                    if (!firstInvalidField) {
+                        firstInvalidField = insuranceRadios[0]?.closest('.rca-insurance-option') || insuranceRadios[0];
                     }
-                });
-                if (!firstInvalidField) {
-                    firstInvalidField = insuranceRadios[0]?.closest('.rca-insurance-option') || insuranceRadios[0];
                 }
             }
             
-            // Validate checkboxes (initials) - highlight ALL unchecked required checkboxes
-            const requiredCheckboxes = form.querySelectorAll('input[type="checkbox"][required]');
-            requiredCheckboxes.forEach(checkbox => {
-                if (!checkbox.checked) {
-                    isValid = false;
-                    checkbox.classList.add('rca-invalid-field');
-                    
-                    // Highlight the label
-                    const label = checkbox.closest('label');
-                    if (label) {
-                        label.classList.add('rca-invalid-field');
+            // Validate checkboxes (initials) - only for full form
+            if (!isSimpleForm) {
+                const requiredCheckboxes = form.querySelectorAll('input[type="checkbox"][required]');
+                requiredCheckboxes.forEach(checkbox => {
+                    if (!checkbox.checked) {
+                        isValid = false;
+                        checkbox.classList.add('rca-invalid-field');
+                        
+                        // Highlight the label
+                        const label = checkbox.closest('label');
+                        if (label) {
+                            label.classList.add('rca-invalid-field');
+                        }
+                        
+                        // Highlight the container (rca-initial-field or rca-checkbox-field)
+                        const initialField = checkbox.closest('.rca-initial-field');
+                        const checkboxField = checkbox.closest('.rca-checkbox-field');
+                        if (initialField) {
+                            initialField.classList.add('rca-invalid-field');
+                        }
+                        if (checkboxField) {
+                            checkboxField.classList.add('rca-invalid-field');
+                        }
+                        
+                        // Also highlight parent form-group if exists
+                        const formGroup = checkbox.closest('.rca-form-group');
+                        if (formGroup) {
+                            formGroup.classList.add('rca-has-error');
+                        }
+                        
+                        if (!firstInvalidField) {
+                            firstInvalidField = checkbox;
+                        }
                     }
-                    
-                    // Highlight the container (rca-initial-field or rca-checkbox-field)
-                    const initialField = checkbox.closest('.rca-initial-field');
-                    const checkboxField = checkbox.closest('.rca-checkbox-field');
-                    if (initialField) {
-                        initialField.classList.add('rca-invalid-field');
-                    }
-                    if (checkboxField) {
-                        checkboxField.classList.add('rca-invalid-field');
-                    }
-                    
-                    // Also highlight parent form-group if exists
-                    const formGroup = checkbox.closest('.rca-form-group');
-                    if (formGroup) {
-                        formGroup.classList.add('rca-has-error');
-                    }
-                    
-                    if (!firstInvalidField) {
-                        firstInvalidField = checkbox;
-                    }
-                }
-            });
+                });
+            }
             
             if (!isValid) {
                 // Reset submit button
@@ -210,12 +232,26 @@ document.addEventListener('DOMContentLoaded', function() {
                         }
                     }, 100);
                 }
+                console.error('Form validation failed. Invalid fields:', form.querySelectorAll('.rca-invalid-field'));
                 alert('Please fill in all required fields correctly. Invalid fields are highlighted in red.');
                 return;
             }
             
+            console.log('Form validation passed. Submitting...');
+            
             const formData = new FormData(form);
             formData.append('action', 'rca_submit_booking_ajax');
+            
+            // Check if this is a completion form and add token from URL if needed
+            const isCompletionForm = form.querySelector('input[name="rca_complete_booking"]') && form.querySelector('input[name="rca_complete_booking"]').value === '1';
+            if (isCompletionForm) {
+                // Get token from URL query string
+                const urlParams = new URLSearchParams(window.location.search);
+                const token = urlParams.get('token');
+                if (token && !formData.has('token')) {
+                    formData.append('token', token);
+                }
+            }
             
             if(typeof rca_obj !== 'undefined' && rca_obj.ajax_url) {
                 fetch(rca_obj.ajax_url, {
@@ -239,10 +275,49 @@ document.addEventListener('DOMContentLoaded', function() {
                     return response.json();
                 })
                 .then(data => {
-                    if (data.success) {
-                        modalBody.innerHTML = '<div class="rca-alert rca-alert-success" style="padding: 2rem; text-align: center;"><h3 style="color: #10b981; margin-bottom: 1rem;">Booking Request Submitted Successfully!</h3><p style="color: #cbd5e1; line-height: 1.6;">Your booking request has been received. We will contact you shortly to confirm your rental agreement.</p><button type="button" class="rca-btn" style="margin-top: 1.5rem; max-width: 200px; width: auto; padding: 0.875rem 2rem;" onclick="document.getElementById(\'rca-booking-modal\').style.display=\'none\'; document.body.style.overflow=\'auto\';">Close</button></div>';
+                    console.log('AJAX Response:', data); // Debug log
+                    if (data && data.success) {
+                        // Check if this is a completion form (has redirect_url)
+                        if (isCompletionForm) {
+                            // For completion forms, always redirect
+                            let redirectUrl = null;
+                            
+                            if (data.data && data.data.redirect_url) {
+                                redirectUrl = data.data.redirect_url;
+                            } else {
+                                // Fallback: construct redirect URL from current page
+                                const urlParams = new URLSearchParams(window.location.search);
+                                const token = urlParams.get('token');
+                                if (token) {
+                                    const currentUrl = new URL(window.location.href);
+                                    currentUrl.searchParams.set('completed', '1');
+                                    redirectUrl = currentUrl.toString();
+                                }
+                            }
+                            
+                            if (redirectUrl) {
+                                console.log('Redirecting to:', redirectUrl); // Debug log
+                                // Use replace to prevent back button issues
+                                window.location.replace(redirectUrl);
+                            } else {
+                                // Fallback: reload with completed parameter
+                                const urlParams = new URLSearchParams(window.location.search);
+                                urlParams.set('completed', '1');
+                                window.location.replace(window.location.pathname + '?' + urlParams.toString());
+                            }
+                        } else {
+                            // Show success message for modal forms
+                            if (modalBody) {
+                                modalBody.innerHTML = '<div class="rca-alert rca-alert-success" style="padding: 2rem; text-align: center;"><h3 style="color: #10b981; margin-bottom: 1rem;">Booking Request Submitted Successfully!</h3><p style="color: #cbd5e1; line-height: 1.6;">Your booking request has been received. We will contact you shortly to confirm your rental agreement.</p><button type="button" class="rca-btn" style="margin-top: 1.5rem; max-width: 200px; width: auto; padding: 0.875rem 2rem;" onclick="document.getElementById(\'rca-booking-modal\').style.display=\'none\'; document.body.style.overflow=\'auto\';">Close</button></div>';
+                            } else {
+                                // If not in modal, show alert and reload
+                                alert('Booking completed successfully!');
+                                window.location.reload();
+                            }
+                        }
                     } else {
-                        alert('Error: ' + (data.data && data.data.message ? data.data.message : data.message || 'Failed to submit booking. Please try again.'));
+                        const errorMsg = (data && data.data && data.data.message) ? data.data.message : (data && data.message) ? data.message : 'Failed to submit booking. Please try again.';
+                        alert('Error: ' + errorMsg);
                         if (submitBtn) {
                             submitBtn.disabled = false;
                             submitBtn.textContent = originalText;
@@ -251,7 +326,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .catch(err => {
                     console.error('Booking submission error:', err);
-                    alert('Error: Failed to submit booking. Please try again. ' + err.message);
+                    // Check if the form was actually submitted (booking might be completed)
+                    if (isCompletionForm) {
+                        // For completion forms, if there's an error but booking might be done, try redirecting
+                        const urlParams = new URLSearchParams(window.location.search);
+                        const token = urlParams.get('token');
+                        if (token) {
+                            urlParams.set('completed', '1');
+                            console.log('Error occurred, but trying redirect anyway:', window.location.pathname + '?' + urlParams.toString());
+                            window.location.replace(window.location.pathname + '?' + urlParams.toString());
+                            return;
+                        }
+                    }
+                    alert('Error: Failed to submit booking. Please try again. ' + (err.message || ''));
                     if (submitBtn) {
                         submitBtn.disabled = false;
                         submitBtn.textContent = originalText;

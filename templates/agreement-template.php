@@ -79,16 +79,17 @@ $print_mode = isset( $_GET['print'] ) && $_GET['print'] === '1';
             margin: 5px 0;
         }
         .section {
-            margin-bottom: 4px;
+            margin-bottom: 2px;
+            margin-top: 2px;
         }
         .section p {
-            margin: 3px 0;
+            margin: 2px 0;
             text-align: justify;
         }
         .section-title {
             font-weight: bold;
-            margin-top: 8px;
-            margin-bottom: 4px;
+            margin-top: 4px;
+            margin-bottom: 2px;
         }
         .field-line {
             margin: 3px 0;
@@ -107,28 +108,28 @@ $print_mode = isset( $_GET['print'] ) && $_GET['print'] === '1';
             font-size: 14pt;
         }
         .signature-section {
-            margin-top: 15px;
+            margin-top: 8px;
             border-top: 1px solid #000;
-            padding-top: 8px;
+            padding-top: 4px;
         }
         .renter-info-section {
-            margin-top: 10px;
+            margin-top: 6px;
             border-top: 1px solid #ccc;
-            padding-top: 8px;
+            padding-top: 4px;
         }
         ul {
-            margin: 4px 0;
+            margin: 2px 0;
             padding-left: 25px;
         }
         li {
-            margin: 2px 0;
+            margin: 1px 0;
         }
         .insurance-option {
-            margin: 5px 0;
+            margin: 3px 0;
         }
         .insurance-option-title {
             font-weight: bold;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
         }
     </style>
     <script>

@@ -69,6 +69,33 @@ add_action( 'plugins_loaded', array( 'Rental_Car_Agreements', 'get_instance' ) )
 // Activation Hook
 register_activation_hook( __FILE__, 'rca_activate_plugin' );
 function rca_activate_plugin() {
+	// Create completion page if it doesn't exist
+	$page_slug = 'complete-booking';
+	$page = get_page_by_path( $page_slug );
+	
+	if ( ! $page ) {
+		$page_id = wp_insert_post( array(
+			'post_title'   => 'Complete Booking',
+			'post_name'    => $page_slug,
+			'post_content' => '[rental_car_completion]',
+			'post_status'  => 'publish',
+			'post_type'    => 'page',
+		) );
+		
+		if ( $page_id ) {
+			update_option( 'rca_completion_page_id', $page_id );
+		}
+	} else {
+		// Update existing page to ensure it has the shortcode
+		$content = $page->post_content;
+		if ( strpos( $content, '[rental_car_completion]' ) === false ) {
+			wp_update_post( array(
+				'ID'           => $page->ID,
+				'post_content' => '[rental_car_completion]',
+			) );
+		}
+		update_option( 'rca_completion_page_id', $page->ID );
+	}
 	// Trigger CPT registration immediately for flush rewrite rules
 	require_once RCA_PLUGIN_DIR . 'includes/class-cpt-vehicles.php';
 	$vehicles = new RCA_CPT_Vehicles();

@@ -16,6 +16,11 @@ class RCA_CPT_Bookings {
 		add_action( 'admin_head', array( $this, 'hide_add_new_button' ) );
 		// Remove visibility meta box
 		add_action( 'admin_head', array( $this, 'remove_visibility_meta_box' ) );
+		// Handle completion link generation/revocation
+		add_action( 'admin_post_rca_generate_completion_link', array( $this, 'handle_generate_completion_link' ) );
+		add_action( 'admin_post_rca_revoke_completion_link', array( $this, 'handle_revoke_completion_link' ) );
+		// Update completion links on admin load to match current permalink structure
+		add_action( 'admin_init', array( $this, 'update_completion_links_on_admin_load' ) );
 	}
 
 	public function hide_add_new_button() {
@@ -111,13 +116,207 @@ class RCA_CPT_Bookings {
 	}
 
 	public function render_actions_box( $post ) {
+		$completion_link = get_post_meta( $post->ID, '_rca_completion_link', true );
+		$completion_token = get_post_meta( $post->ID, '_rca_completion_token', true );
+		
+		// Check for admin notices
+		if ( isset( $_GET['rca_link_generated'] ) && $_GET['rca_link_generated'] == '1' ) {
+			echo '<div class="notice notice-success is-dismissible"><p>Completion link generated successfully!</p></div>';
+		}
+		if ( isset( $_GET['rca_link_revoked'] ) && $_GET['rca_link_revoked'] == '1' ) {
+			echo '<div class="notice notice-success is-dismissible"><p>Completion link revoked successfully!</p></div>';
+		}
 		?>
 		<div class="rca-actions">
 			<div style="margin-top: 10px;">
 				<a href="<?php echo admin_url( 'admin.php?page=rental_car_agreement&booking_id=' . $post->ID . '&download=1' ); ?>" class="button button-primary button-large" style="width:100%; text-align:center; margin-bottom: 5px;">Download Agreement</a>
 			</div>
+			<div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #ddd;">
+				<h4>Completion Link</h4>
+				<?php 
+				// If no link exists, generate it automatically
+				if ( ! $completion_link ) {
+					self::generate_completion_link( $post->ID );
+					$completion_link = get_post_meta( $post->ID, '_rca_completion_link', true );
+				}
+				?>
+				<?php if ( $completion_link ) : ?>
+					<div style="margin-bottom: 10px;">
+						<input type="text" readonly value="<?php echo esc_attr( $completion_link ); ?>" id="rca-completion-link" style="width: 100%; padding: 5px; font-size: 12px;" onclick="this.select();">
+					</div>
+					<button type="button" class="button button-primary" style="width:100%; margin-bottom: 5px;" onclick="document.getElementById('rca-completion-link').select(); document.execCommand('copy'); alert('Link copied to clipboard!');">Copy Link</button>
+				<?php else : ?>
+					<p style="color: #d63638;">Error: Unable to generate completion link. Please refresh the page.</p>
+				<?php endif; ?>
+			</div>
 		</div>
 		<?php
+	}
+	
+	/**
+	 * Handle completion link generation
+	 */
+	public function handle_generate_completion_link() {
+		// Get booking ID from POST
+		$booking_id = isset( $_POST['booking_id'] ) ? intval( $_POST['booking_id'] ) : 0;
+		
+		if ( ! $booking_id ) {
+			wp_die( 'Invalid booking ID. Please go back and try again.', 'Error', array( 'back_link' => true ) );
+		}
+		
+		// Verify nonce manually to avoid auto-redirect on failure
+		$nonce = isset( $_POST['rca_generate_nonce'] ) ? $_POST['rca_generate_nonce'] : '';
+		if ( ! wp_verify_nonce( $nonce, 'rca_generate_completion_link_' . $booking_id ) ) {
+			wp_die( 'Security check failed. Please go back and try again.', 'Security Error', array( 'back_link' => true ) );
+		}
+		
+		if ( ! current_user_can( 'edit_post', $booking_id ) ) {
+			wp_die( 'You do not have permission to perform this action.', 'Permission Denied', array( 'back_link' => true ) );
+		}
+		
+		// Generate the completion link
+		self::generate_completion_link( $booking_id );
+		
+		// Get the referrer URL as fallback, or construct the edit URL
+		$referer = wp_get_referer();
+		if ( $referer && strpos( $referer, 'post.php' ) !== false && strpos( $referer, 'post=' . $booking_id ) !== false ) {
+			// Use referrer if it's the correct edit page
+			$redirect_url = add_query_arg( 'rca_link_generated', '1', $referer );
+		} else {
+			// Construct the edit page URL
+			$redirect_url = add_query_arg( array(
+				'post' => $booking_id,
+				'action' => 'edit',
+				'rca_link_generated' => '1'
+			), admin_url( 'post.php' ) );
+		}
+		
+		wp_safe_redirect( $redirect_url );
+		exit;
+	}
+	
+	/**
+	 * Handle completion link revocation
+	 */
+	public function handle_revoke_completion_link() {
+		$booking_id = isset( $_POST['booking_id'] ) ? intval( $_POST['booking_id'] ) : 0;
+		
+		if ( ! $booking_id ) {
+			wp_die( 'Invalid booking ID.' );
+		}
+		
+		check_admin_referer( 'rca_revoke_completion_link_' . $booking_id, 'rca_revoke_nonce' );
+		
+		if ( ! current_user_can( 'edit_post', $booking_id ) ) {
+			wp_die( 'You do not have permission to perform this action.' );
+		}
+		
+		delete_post_meta( $booking_id, '_rca_completion_link' );
+		delete_post_meta( $booking_id, '_rca_completion_token' );
+		
+		wp_redirect( admin_url( 'post.php?post=' . $booking_id . '&action=edit&rca_link_revoked=1' ) );
+		exit;
+	}
+	
+	/**
+	 * Generate unique completion link for booking
+	 * Static method so it can be called from anywhere
+	 */
+	public static function generate_completion_link( $booking_id, $regenerate_token = false ) {
+		// Get or generate token
+		$token = get_post_meta( $booking_id, '_rca_completion_token', true );
+		if ( empty( $token ) || $regenerate_token ) {
+			$token = uniqid( 'rca_' . $booking_id . '_', true );
+		}
+		
+		// Get the completion page
+		$page_id = get_option( 'rca_completion_page_id' );
+		if ( ! $page_id ) {
+			// Try to find page by slug
+			$page = get_page_by_path( 'complete-booking' );
+			if ( $page ) {
+				$page_id = $page->ID;
+				update_option( 'rca_completion_page_id', $page_id );
+			}
+		}
+		
+		// Get the completion page URL - respects WordPress permalink structure from Settings > Permalinks
+		if ( $page_id ) {
+			// Use get_permalink() which automatically respects the permalink structure
+			// configured in WordPress admin (Settings > Permalinks)
+			// - For pretty permalinks: returns http://site.com/complete-booking/
+			// - For plain permalinks: returns http://site.com/?page_id=123
+			$page_url = get_permalink( $page_id );
+			
+			if ( $page_url ) {
+				// Add token as query parameter
+				// add_query_arg handles both pretty and plain permalink URLs correctly
+				$completion_url = add_query_arg( 'token', urlencode( $token ), $page_url );
+			} else {
+				// Fallback: construct URL manually based on permalink structure
+				$permalink_structure = get_option( 'permalink_structure' );
+				if ( empty( $permalink_structure ) ) {
+					// Plain permalinks: use ?page_id= format
+					$completion_url = add_query_arg( array(
+						'page_id' => $page_id,
+						'token' => urlencode( $token )
+					), home_url( '/' ) );
+				} else {
+					// Pretty permalinks: use slug
+					$page = get_post( $page_id );
+					if ( $page ) {
+						$completion_url = home_url( '/' . $page->post_name . '/?token=' . urlencode( $token ) );
+					} else {
+						$completion_url = home_url( '/complete-booking/?token=' . urlencode( $token ) );
+					}
+				}
+			}
+		} else {
+			// Fallback to old URL structure
+			$completion_url = home_url( '/complete-booking/?token=' . urlencode( $token ) );
+		}
+		
+		// Save token and link
+		update_post_meta( $booking_id, '_rca_completion_token', $token );
+		update_post_meta( $booking_id, '_rca_completion_link', $completion_url );
+		
+		return $completion_url;
+	}
+	
+	/**
+	 * Update all existing completion links to match current permalink structure
+	 * Runs on admin_init to ensure links are always up-to-date
+	 */
+	public function update_completion_links_on_admin_load() {
+		// Only run in admin area
+		if ( ! is_admin() ) {
+			return;
+		}
+		
+		// Get all bookings that have completion tokens
+		$bookings = get_posts( array(
+			'post_type' => 'rental_booking',
+			'posts_per_page' => -1,
+			'post_status' => 'any',
+			'meta_key' => '_rca_completion_token',
+			'meta_compare' => 'EXISTS',
+		) );
+		
+		if ( empty( $bookings ) ) {
+			return;
+		}
+		
+		// Update each booking's completion link to match current permalink structure
+		// This preserves the existing token but updates the URL format
+		foreach ( $bookings as $booking ) {
+			$token = get_post_meta( $booking->ID, '_rca_completion_token', true );
+			if ( empty( $token ) ) {
+				continue;
+			}
+			
+			// Regenerate link with existing token (don't regenerate token)
+			self::generate_completion_link( $booking->ID, false );
+		}
 	}
 
 	public function render_details_box( $post ) {
@@ -452,6 +651,10 @@ class RCA_CPT_Bookings {
 		switch ( $column ) {
 			case 'rca_status':
 				$status = get_post_meta( $post_id, '_rca_booking_status', true );
+				// Default to 'pending' if status is empty or 'lead'
+				if ( empty( $status ) || $status === 'lead' ) {
+					$status = 'pending';
+				}
 				echo ucfirst( $status );
 				break;
 			case 'rca_vehicle':
