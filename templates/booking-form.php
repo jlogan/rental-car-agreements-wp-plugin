@@ -448,12 +448,12 @@
                         </select>
                     </div>
                     <div class="rca-form-group">
-                        <label for="rca_zip_code">Zip Code <span class="rca-required-asterisk">*</span></label>
-                        <input type="text" name="rca_zip_code" id="rca_zip_code" required pattern="[0-9]{5}(-[0-9]{4})?" title="Please enter a valid zip code (12345 or 12345-6789)" maxlength="10">
-                    </div>
-                    <div class="rca-form-group full-width">
                         <label for="rca_license">Driver's License Number <span class="rca-required-asterisk">*</span></label>
                         <input type="text" name="rca_license" id="rca_license" required>
+                    </div>
+                    <div class="rca-form-group full-width">
+                        <label for="rca_zip_code">Zip Code <span class="rca-required-asterisk">*</span></label>
+                        <input type="text" name="rca_zip_code" id="rca_zip_code" required pattern="[0-9]{5}(-[0-9]{4})?" title="Please enter a valid zip code (12345 or 12345-6789)" maxlength="10">
                     </div>
                     <div class="rca-form-group">
                         <label for="rca_phone">Phone <span class="rca-required-asterisk">*</span></label>

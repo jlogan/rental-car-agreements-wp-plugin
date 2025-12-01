@@ -502,12 +502,12 @@
                         <input type="hidden" name="rca_state" value="<?php echo esc_attr( $state ); ?>">
                     </div>
                     <div class="rca-form-group">
-                        <label for="rca_zip_code">Zip Code <span class="rca-required-asterisk">*</span></label>
-                        <input type="text" name="rca_zip_code" id="rca_zip_code" value="<?php echo esc_attr( $zip_code ); ?>" required readonly style="opacity: 0.6; cursor: not-allowed;">
-                    </div>
-                    <div class="rca-form-group full-width">
                         <label for="rca_license">Driver's License Number <span class="rca-required-asterisk">*</span></label>
                         <input type="text" name="rca_license" id="rca_license" value="<?php echo esc_attr( $license ); ?>" required readonly style="opacity: 0.6; cursor: not-allowed;">
+                    </div>
+                    <div class="rca-form-group full-width">
+                        <label for="rca_zip_code">Zip Code <span class="rca-required-asterisk">*</span></label>
+                        <input type="text" name="rca_zip_code" id="rca_zip_code" value="<?php echo esc_attr( $zip_code ); ?>" required readonly style="opacity: 0.6; cursor: not-allowed;">
                     </div>
                     <div class="rca-form-group">
                         <label for="rca_phone">Phone <span class="rca-required-asterisk">*</span></label>
