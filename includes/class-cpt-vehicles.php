@@ -71,7 +71,13 @@ class RCA_CPT_Vehicles {
 		$deposit       = get_post_meta( $post->ID, '_rca_deposit', true );
 		$insurance     = get_post_meta( $post->ID, '_rca_insurance_included', true );
 		$status        = get_post_meta( $post->ID, '_rca_status', true );
+		$min_booking_days = get_post_meta( $post->ID, '_rca_min_booking_days', true );
 		$notes         = get_post_meta( $post->ID, '_rca_notes', true );
+		
+		// Default to 7 days if not set
+		if ( empty( $min_booking_days ) ) {
+			$min_booking_days = 7;
+		}
 
 		?>
 		<style>
@@ -140,6 +146,11 @@ class RCA_CPT_Vehicles {
 						<option value="maintenance" <?php selected( $status, 'maintenance' ); ?>>Maintenance</option>
 					</select>
 				</div>
+				<div class="rca-col">
+					<label for="rca_min_booking_days">Minimum Booking Days</label>
+					<input type="number" min="1" id="rca_min_booking_days" name="rca_min_booking_days" value="<?php echo esc_attr( $min_booking_days ); ?>" placeholder="7">
+					<small style="display: block; margin-top: 5px; color: #666;">Minimum number of days for rental (default: 7)</small>
+				</div>
 			</div>
 			<div class="rca-row">
 				<div class="rca-col">
@@ -176,6 +187,7 @@ class RCA_CPT_Vehicles {
 			'rca_deposit',
 			'rca_insurance_included',
 			'rca_status',
+			'rca_min_booking_days',
 			'rca_notes',
 		);
 

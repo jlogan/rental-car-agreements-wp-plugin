@@ -267,11 +267,15 @@ class RCA_Frontend {
         // Note: rca_base_fee_weekly is fetched from backend, not from POST
         $required_fields = array(
             'vehicle_id',
-            'rca_fullname',
+            'rca_first_name',
+            'rca_last_name',
             'rca_email',
             'rca_phone',
             'rca_license',
-            'rca_address',
+            'rca_street_address',
+            'rca_city',
+            'rca_state',
+            'rca_zip_code',
             'rca_agreement_date',
             'rca_signature',
             'rca_start_date',
@@ -296,22 +300,42 @@ class RCA_Frontend {
         // Sanitize and Validate Inputs - Renter Information
         $vehicle_id = intval( $_POST['vehicle_id'] );
         
-        // Validate and sanitize full name
-        $fullname = sanitize_text_field( $_POST['rca_fullname'] );
-        if ( empty( $fullname ) || strlen( $fullname ) < 2 || strlen( $fullname ) > 100 ) {
+        // Validate and sanitize first name
+        $first_name = sanitize_text_field( $_POST['rca_first_name'] );
+        if ( empty( $first_name ) || strlen( $first_name ) < 1 || strlen( $first_name ) > 50 ) {
             while ( ob_get_level() ) {
                 ob_end_clean();
             }
-            wp_send_json_error( array( 'message' => 'Please enter a valid name (2-100 characters).' ) );
+            wp_send_json_error( array( 'message' => 'Please enter a valid first name.' ) );
             wp_die();
         }
-        if ( ! preg_match( '/^[A-Za-z\s\'-]+$/', $fullname ) ) {
+        if ( ! preg_match( '/^[A-Za-z\s\'-]+$/', $first_name ) ) {
             while ( ob_get_level() ) {
                 ob_end_clean();
             }
-            wp_send_json_error( array( 'message' => 'Name can only contain letters, spaces, hyphens, and apostrophes.' ) );
+            wp_send_json_error( array( 'message' => 'First name can only contain letters, spaces, hyphens, and apostrophes.' ) );
             wp_die();
         }
+        
+        // Validate and sanitize last name
+        $last_name = sanitize_text_field( $_POST['rca_last_name'] );
+        if ( empty( $last_name ) || strlen( $last_name ) < 1 || strlen( $last_name ) > 50 ) {
+            while ( ob_get_level() ) {
+                ob_end_clean();
+            }
+            wp_send_json_error( array( 'message' => 'Please enter a valid last name.' ) );
+            wp_die();
+        }
+        if ( ! preg_match( '/^[A-Za-z\s\'-]+$/', $last_name ) ) {
+            while ( ob_get_level() ) {
+                ob_end_clean();
+            }
+            wp_send_json_error( array( 'message' => 'Last name can only contain letters, spaces, hyphens, and apostrophes.' ) );
+            wp_die();
+        }
+        
+        // Combine first and last name for backward compatibility
+        $fullname = trim( $first_name . ' ' . $last_name );
         
         // Sanitize email (browser handles validation)
         $email = sanitize_email( $_POST['rca_email'] );
@@ -322,8 +346,19 @@ class RCA_Frontend {
         // Sanitize license (no validation)
         $license = sanitize_text_field( $_POST['rca_license'] );
         
-        // Sanitize address (no validation)
-        $address = sanitize_textarea_field( $_POST['rca_address'] );
+        // Sanitize address fields
+        $street_address = sanitize_text_field( $_POST['rca_street_address'] );
+        $apt_unit = isset( $_POST['rca_apt_unit'] ) ? sanitize_text_field( $_POST['rca_apt_unit'] ) : '';
+        $city = sanitize_text_field( $_POST['rca_city'] );
+        $state = sanitize_text_field( $_POST['rca_state'] );
+        $zip_code = sanitize_text_field( $_POST['rca_zip_code'] );
+        
+        // Combine address fields for backward compatibility
+        $address = $street_address;
+        if ( $apt_unit ) {
+            $address .= "\n" . $apt_unit;
+        }
+        $address .= "\n" . $city . ', ' . $state . ' ' . $zip_code;
         
         // Validate agreement date
         $agreement_date = sanitize_text_field( $_POST['rca_agreement_date'] );
@@ -384,6 +419,32 @@ class RCA_Frontend {
                 ob_end_clean();
             }
             wp_send_json_error( array( 'message' => 'End date cannot be before start date.' ) );
+            wp_die();
+        }
+        
+        // Validate minimum booking days
+        $min_booking_days = get_post_meta( $vehicle_id, '_rca_min_booking_days', true );
+        if ( empty( $min_booking_days ) ) {
+            $min_booking_days = 7; // Default to 7 days (1 week)
+        }
+        $min_booking_days = intval( $min_booking_days );
+        
+        $start_timestamp = strtotime( $start_date );
+        $end_timestamp = strtotime( $end_date );
+        $days_diff = ( $end_timestamp - $start_timestamp ) / ( 60 * 60 * 24 );
+        
+        if ( $days_diff < $min_booking_days ) {
+            while ( ob_get_level() ) {
+                ob_end_clean();
+            }
+            $min_date = date( 'Y-m-d', strtotime( $start_date . ' +' . $min_booking_days . ' days' ) );
+            wp_send_json_error( array( 
+                'message' => sprintf( 
+                    'The minimum booking period for this vehicle is %d days. The end date must be at least %s.', 
+                    $min_booking_days,
+                    date( 'F j, Y', strtotime( $min_date ) )
+                ) 
+            ) );
             wp_die();
         }
         
@@ -501,6 +562,15 @@ class RCA_Frontend {
             update_post_meta( $booking_id, '_rca_renter_id', $renter_id );
             update_post_meta( $booking_id, '_rca_agreement_date', $agreement_date );
             update_post_meta( $booking_id, '_rca_signature', $signature );
+            
+            // Store individual fields for new structure
+            update_post_meta( $booking_id, '_rca_first_name', $first_name );
+            update_post_meta( $booking_id, '_rca_last_name', $last_name );
+            update_post_meta( $booking_id, '_rca_street_address', $street_address );
+            update_post_meta( $booking_id, '_rca_apt_unit', $apt_unit );
+            update_post_meta( $booking_id, '_rca_city', $city );
+            update_post_meta( $booking_id, '_rca_state', $state );
+            update_post_meta( $booking_id, '_rca_zip_code', $zip_code );
 
             // Vehicle Information Snapshot (stored at time of booking)
             update_post_meta( $booking_id, '_rca_vehicle_make', $vehicle_make );
@@ -560,12 +630,15 @@ class RCA_Frontend {
         // Validate required fields for simplified form
         $required_fields = array(
             'vehicle_id',
-            'rca_fullname',
+            'rca_first_name',
+            'rca_last_name',
             'rca_email',
             'rca_phone',
             'rca_license',
-            'rca_address',
-            'rca_driver_state',
+            'rca_street_address',
+            'rca_city',
+            'rca_state',
+            'rca_zip_code',
             'rca_start_date',
             'rca_end_date',
         );
@@ -586,15 +659,42 @@ class RCA_Frontend {
         // Sanitize and Validate Inputs
         $vehicle_id = intval( $_POST['vehicle_id'] );
         
-        // Validate and sanitize full name
-        $fullname = sanitize_text_field( $_POST['rca_fullname'] );
-        if ( empty( $fullname ) || strlen( $fullname ) < 2 || strlen( $fullname ) > 100 ) {
+        // Validate and sanitize first name
+        $first_name = sanitize_text_field( $_POST['rca_first_name'] );
+        if ( empty( $first_name ) || strlen( $first_name ) < 1 || strlen( $first_name ) > 50 ) {
             while ( ob_get_level() ) {
                 ob_end_clean();
             }
-            wp_send_json_error( array( 'message' => 'Please enter a valid name (2-100 characters).' ) );
+            wp_send_json_error( array( 'message' => 'Please enter a valid first name.' ) );
             wp_die();
         }
+        if ( ! preg_match( '/^[A-Za-z\s\'-]+$/', $first_name ) ) {
+            while ( ob_get_level() ) {
+                ob_end_clean();
+            }
+            wp_send_json_error( array( 'message' => 'First name can only contain letters, spaces, hyphens, and apostrophes.' ) );
+            wp_die();
+        }
+        
+        // Validate and sanitize last name
+        $last_name = sanitize_text_field( $_POST['rca_last_name'] );
+        if ( empty( $last_name ) || strlen( $last_name ) < 1 || strlen( $last_name ) > 50 ) {
+            while ( ob_get_level() ) {
+                ob_end_clean();
+            }
+            wp_send_json_error( array( 'message' => 'Please enter a valid last name.' ) );
+            wp_die();
+        }
+        if ( ! preg_match( '/^[A-Za-z\s\'-]+$/', $last_name ) ) {
+            while ( ob_get_level() ) {
+                ob_end_clean();
+            }
+            wp_send_json_error( array( 'message' => 'Last name can only contain letters, spaces, hyphens, and apostrophes.' ) );
+            wp_die();
+        }
+        
+        // Combine first and last name for backward compatibility
+        $fullname = trim( $first_name . ' ' . $last_name );
         
         // Sanitize email
         $email = sanitize_email( $_POST['rca_email'] );
@@ -605,11 +705,22 @@ class RCA_Frontend {
         // Sanitize license
         $license = sanitize_text_field( $_POST['rca_license'] );
         
-        // Sanitize driver state
-        $driver_state = sanitize_text_field( $_POST['rca_driver_state'] );
+        // Sanitize address fields
+        $street_address = sanitize_text_field( $_POST['rca_street_address'] );
+        $apt_unit = isset( $_POST['rca_apt_unit'] ) ? sanitize_text_field( $_POST['rca_apt_unit'] ) : '';
+        $city = sanitize_text_field( $_POST['rca_city'] );
+        $state = sanitize_text_field( $_POST['rca_state'] );
+        $zip_code = sanitize_text_field( $_POST['rca_zip_code'] );
         
-        // Sanitize address
-        $address = sanitize_textarea_field( $_POST['rca_address'] );
+        // Combine address fields for backward compatibility
+        $address = $street_address;
+        if ( $apt_unit ) {
+            $address .= "\n" . $apt_unit;
+        }
+        $address .= "\n" . $city . ', ' . $state . ' ' . $zip_code;
+        
+        // Keep driver_state for backward compatibility (same as state)
+        $driver_state = $state;
         
         // Validate start date
         $start_date = sanitize_text_field( $_POST['rca_start_date'] );
@@ -649,6 +760,32 @@ class RCA_Frontend {
                 ob_end_clean();
             }
             wp_send_json_error( array( 'message' => 'End date cannot be before start date.' ) );
+            wp_die();
+        }
+        
+        // Validate minimum booking days
+        $min_booking_days = get_post_meta( $vehicle_id, '_rca_min_booking_days', true );
+        if ( empty( $min_booking_days ) ) {
+            $min_booking_days = 7; // Default to 7 days (1 week)
+        }
+        $min_booking_days = intval( $min_booking_days );
+        
+        $start_timestamp = strtotime( $start_date );
+        $end_timestamp = strtotime( $end_date );
+        $days_diff = ( $end_timestamp - $start_timestamp ) / ( 60 * 60 * 24 );
+        
+        if ( $days_diff < $min_booking_days ) {
+            while ( ob_get_level() ) {
+                ob_end_clean();
+            }
+            $min_date = date( 'Y-m-d', strtotime( $start_date . ' +' . $min_booking_days . ' days' ) );
+            wp_send_json_error( array( 
+                'message' => sprintf( 
+                    'The minimum booking period for this vehicle is %d days. The end date must be at least %s.', 
+                    $min_booking_days,
+                    date( 'F j, Y', strtotime( $min_date ) )
+                ) 
+            ) );
             wp_die();
         }
 
@@ -712,6 +849,15 @@ class RCA_Frontend {
             update_post_meta( $booking_id, '_rca_customer_address', $address );
             update_post_meta( $booking_id, '_rca_driver_state', $driver_state );
             update_post_meta( $booking_id, '_rca_renter_id', $renter_id );
+            
+            // Store individual fields for new structure
+            update_post_meta( $booking_id, '_rca_first_name', $first_name );
+            update_post_meta( $booking_id, '_rca_last_name', $last_name );
+            update_post_meta( $booking_id, '_rca_street_address', $street_address );
+            update_post_meta( $booking_id, '_rca_apt_unit', $apt_unit );
+            update_post_meta( $booking_id, '_rca_city', $city );
+            update_post_meta( $booking_id, '_rca_state', $state );
+            update_post_meta( $booking_id, '_rca_zip_code', $zip_code );
 
             // Vehicle Information Snapshot
             update_post_meta( $booking_id, '_rca_vehicle_make', $vehicle_make );
@@ -921,6 +1067,15 @@ class RCA_Frontend {
 			update_post_meta( $booking_id, '_rca_renter_id', $renter_id );
 			update_post_meta( $booking_id, '_rca_agreement_date', $agreement_date );
 			update_post_meta( $booking_id, '_rca_signature', $signature );
+			
+			// Store individual fields for new structure
+			update_post_meta( $booking_id, '_rca_first_name', $first_name );
+			update_post_meta( $booking_id, '_rca_last_name', $last_name );
+			update_post_meta( $booking_id, '_rca_street_address', $street_address );
+			update_post_meta( $booking_id, '_rca_apt_unit', $apt_unit );
+			update_post_meta( $booking_id, '_rca_city', $city );
+			update_post_meta( $booking_id, '_rca_state', $state );
+			update_post_meta( $booking_id, '_rca_zip_code', $zip_code );
 
 			// Vehicle Information Snapshot (stored at time of booking)
 			update_post_meta( $booking_id, '_rca_vehicle_make', $vehicle_make );
@@ -1806,6 +1961,15 @@ class RCA_Frontend {
 		update_post_meta( $booking_id, '_rca_agreement_date', $agreement_date );
 		update_post_meta( $booking_id, '_rca_signature', $signature );
 		
+		// Store individual fields for new structure
+		update_post_meta( $booking_id, '_rca_first_name', $first_name );
+		update_post_meta( $booking_id, '_rca_last_name', $last_name );
+		update_post_meta( $booking_id, '_rca_street_address', $street_address );
+		update_post_meta( $booking_id, '_rca_apt_unit', $apt_unit );
+		update_post_meta( $booking_id, '_rca_city', $city );
+		update_post_meta( $booking_id, '_rca_state', $state );
+		update_post_meta( $booking_id, '_rca_zip_code', $zip_code );
+		
 		// Update vehicle snapshot from backend data
 		update_post_meta( $booking_id, '_rca_vehicle_make', $vehicle_make );
 		update_post_meta( $booking_id, '_rca_vehicle_model', $vehicle_model );
@@ -2022,6 +2186,15 @@ class RCA_Frontend {
 		update_post_meta( $booking_id, '_rca_renter_id', $renter_id );
 		update_post_meta( $booking_id, '_rca_agreement_date', $agreement_date );
 		update_post_meta( $booking_id, '_rca_signature', $signature );
+		
+		// Store individual fields for new structure
+		update_post_meta( $booking_id, '_rca_first_name', $first_name );
+		update_post_meta( $booking_id, '_rca_last_name', $last_name );
+		update_post_meta( $booking_id, '_rca_street_address', $street_address );
+		update_post_meta( $booking_id, '_rca_apt_unit', $apt_unit );
+		update_post_meta( $booking_id, '_rca_city', $city );
+		update_post_meta( $booking_id, '_rca_state', $state );
+		update_post_meta( $booking_id, '_rca_zip_code', $zip_code );
 		
 		// Update vehicle snapshot from backend data
 		update_post_meta( $booking_id, '_rca_vehicle_make', $vehicle_make );

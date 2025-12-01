@@ -1,4 +1,53 @@
 document.addEventListener('DOMContentLoaded', function() {
+    // Function to set up date validation for a form
+    function setupDateValidation(form) {
+        const startDateInput = form.querySelector('#rca_start_date');
+        const endDateInput = form.querySelector('#rca_end_date');
+        
+        if (startDateInput && endDateInput) {
+            // Get minimum booking days from form data attribute
+            const minBookingDays = parseInt(form.getAttribute('data-min-booking-days')) || 7;
+            
+            // Set minimum dates to today
+            const today = new Date().toISOString().split('T')[0];
+            startDateInput.setAttribute('min', today);
+            endDateInput.setAttribute('min', today);
+            
+            // Function to calculate minimum end date
+            function calculateMinEndDate(startDate) {
+                if (!startDate) return today;
+                const start = new Date(startDate);
+                start.setDate(start.getDate() + minBookingDays);
+                return start.toISOString().split('T')[0];
+            }
+            
+            // Update end date minimum when start date changes
+            startDateInput.addEventListener('change', function() {
+                if (this.value) {
+                    const minEndDate = calculateMinEndDate(this.value);
+                    endDateInput.setAttribute('min', minEndDate);
+                    // If end date is before minimum end date, clear it
+                    if (endDateInput.value && endDateInput.value < minEndDate) {
+                        endDateInput.value = '';
+                    }
+                } else {
+                    endDateInput.setAttribute('min', today);
+                }
+            });
+            
+            // Also set initial min if start date is already set
+            if (startDateInput.value) {
+                const minEndDate = calculateMinEndDate(startDateInput.value);
+                endDateInput.setAttribute('min', minEndDate);
+            }
+        }
+    }
+    
+    // Set up date validation for any forms already on the page
+    document.querySelectorAll('.rca-booking-form').forEach(form => {
+        setupDateValidation(form);
+    });
+    
     // Modal Elements
     const modal = document.getElementById("rca-booking-modal");
     const closeBtn = document.querySelector(".rca-close");
@@ -32,27 +81,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         modalBody.innerHTML = html;
                         
                         // Set up date validation after form loads
-                        const startDateInput = document.getElementById('rca_start_date');
-                        const endDateInput = document.getElementById('rca_end_date');
-                        
-                        if (startDateInput && endDateInput) {
-                            // Set minimum dates to today
-                            const today = new Date().toISOString().split('T')[0];
-                            startDateInput.setAttribute('min', today);
-                            endDateInput.setAttribute('min', today);
-                            
-                            // Update end date minimum when start date changes
-                            startDateInput.addEventListener('change', function() {
-                                if (this.value) {
-                                    endDateInput.setAttribute('min', this.value);
-                                    // If end date is before start date, clear it
-                                    if (endDateInput.value && endDateInput.value < this.value) {
-                                        endDateInput.value = '';
-                                    }
-                                } else {
-                                    endDateInput.setAttribute('min', today);
-                                }
-                            });
+                        const form = document.getElementById('rca-car-rental-agreement-form');
+                        if (form) {
+                            setupDateValidation(form);
                         }
                     })
                     .catch(err => {

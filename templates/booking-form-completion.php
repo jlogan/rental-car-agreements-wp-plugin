@@ -35,7 +35,16 @@
             </div>
         <?php endif; ?>
 
-        <form action="<?php echo esc_url( $_SERVER['REQUEST_URI'] ); ?>" method="POST" class="rca-booking-form" id="rca-car-rental-agreement-form" onsubmit="return false;">
+        <form action="<?php echo esc_url( $_SERVER['REQUEST_URI'] ); ?>" method="POST" class="rca-booking-form" id="rca-car-rental-agreement-form" onsubmit="return false;" data-min-booking-days="<?php 
+            $min_booking_days = 7; // Default
+            if ( $vehicle && isset( $vehicle->ID ) ) {
+                $min_booking_days = get_post_meta( $vehicle->ID, '_rca_min_booking_days', true );
+                if ( empty( $min_booking_days ) ) {
+                    $min_booking_days = 7;
+                }
+            }
+            echo esc_attr( $min_booking_days ); 
+        ?>">
             <?php wp_nonce_field( 'rca_submit_booking_action', 'rca_booking_nonce' ); ?>
             <input type="hidden" id="rca_booking_nonce" name="rca_booking_nonce" value="<?php echo wp_create_nonce( 'rca_submit_booking_action' ); ?>">
             <input type="hidden" name="_wp_http_referer" value="<?php echo esc_attr( $_SERVER['REQUEST_URI'] ); ?>">
@@ -396,18 +405,109 @@
             <!-- Renter's Information -->
             <div class="rca-form-section">
                 <h4>RENTER'S INFORMATION</h4>
+                <?php
+                // Parse fullname into first and last name
+                $name_parts = explode( ' ', trim( $fullname ), 2 );
+                $first_name = isset( $name_parts[0] ) ? $name_parts[0] : $fullname;
+                $last_name = isset( $name_parts[1] ) ? $name_parts[1] : '';
+                
+                // Parse address into components (try to extract from stored address)
+                $street_address = $address;
+                $apt_unit = '';
+                $city = '';
+                $state = $driver_state ?: '';
+                $zip_code = '';
+                
+                // Try to parse address if it contains newlines or commas
+                if ( $address ) {
+                    $address_lines = preg_split( '/[\r\n]+/', $address );
+                    if ( count( $address_lines ) >= 1 ) {
+                        $street_address = trim( $address_lines[0] );
+                    }
+                    if ( count( $address_lines ) >= 2 ) {
+                        $city_state_zip = trim( $address_lines[1] );
+                        // Try to extract city, state, zip from second line
+                        if ( preg_match( '/^(.+?),\s*([A-Z]{2})\s+(\d{5}(-\d{4})?)$/', $city_state_zip, $matches ) ) {
+                            $city = $matches[1];
+                            $state = $matches[2];
+                            $zip_code = $matches[3];
+                        }
+                    }
+                }
+                
+                // Get individual address fields from meta if they exist (for new submissions)
+                $stored_street = get_post_meta( $booking_id, '_rca_street_address', true );
+                $stored_apt = get_post_meta( $booking_id, '_rca_apt_unit', true );
+                $stored_city = get_post_meta( $booking_id, '_rca_city', true );
+                $stored_state = get_post_meta( $booking_id, '_rca_state', true );
+                $stored_zip = get_post_meta( $booking_id, '_rca_zip_code', true );
+                
+                if ( $stored_street ) $street_address = $stored_street;
+                if ( $stored_apt ) $apt_unit = $stored_apt;
+                if ( $stored_city ) $city = $stored_city;
+                if ( $stored_state ) $state = $stored_state;
+                if ( $stored_zip ) $zip_code = $stored_zip;
+                
+                // Get first/last name from meta if they exist
+                $stored_first = get_post_meta( $booking_id, '_rca_first_name', true );
+                $stored_last = get_post_meta( $booking_id, '_rca_last_name', true );
+                if ( $stored_first ) $first_name = $stored_first;
+                if ( $stored_last ) $last_name = $stored_last;
+                ?>
                 <div class="rca-form-grid">
                     <div class="rca-form-group">
-                        <label for="rca_fullname">Name <span class="rca-required-asterisk">*</span></label>
-                        <input type="text" name="rca_fullname" id="rca_fullname" value="<?php echo esc_attr( $fullname ); ?>" required readonly style="opacity: 0.6; cursor: not-allowed;" minlength="2" maxlength="100" pattern="[A-Za-z\s\-']+" title="Please enter a valid name (letters, spaces, hyphens, and apostrophes only)">
+                        <label for="rca_first_name">First Name <span class="rca-required-asterisk">*</span></label>
+                        <input type="text" name="rca_first_name" id="rca_first_name" value="<?php echo esc_attr( $first_name ); ?>" required readonly style="opacity: 0.6; cursor: not-allowed;">
                     </div>
                     <div class="rca-form-group">
-                        <label for="rca_license">Driver's License Number <span class="rca-required-asterisk">*</span></label>
-                        <input type="text" name="rca_license" id="rca_license" value="<?php echo esc_attr( $license ); ?>" required readonly style="opacity: 0.6; cursor: not-allowed;">
+                        <label for="rca_last_name">Last Name <span class="rca-required-asterisk">*</span></label>
+                        <input type="text" name="rca_last_name" id="rca_last_name" value="<?php echo esc_attr( $last_name ); ?>" required readonly style="opacity: 0.6; cursor: not-allowed;">
                     </div>
                     <div class="rca-form-group full-width">
-                        <label for="rca_address">Address <span class="rca-required-asterisk">*</span></label>
-                        <textarea name="rca_address" id="rca_address" rows="2" required readonly style="opacity: 0.6; cursor: not-allowed;"><?php echo esc_textarea( $address ); ?></textarea>
+                        <label for="rca_street_address">Street Address <span class="rca-required-asterisk">*</span></label>
+                        <input type="text" name="rca_street_address" id="rca_street_address" value="<?php echo esc_attr( $street_address ); ?>" required readonly style="opacity: 0.6; cursor: not-allowed;">
+                    </div>
+                    <div class="rca-form-group">
+                        <label for="rca_apt_unit">Apt/Unit</label>
+                        <input type="text" name="rca_apt_unit" id="rca_apt_unit" value="<?php echo esc_attr( $apt_unit ); ?>" readonly style="opacity: 0.6; cursor: not-allowed;">
+                    </div>
+                    <div class="rca-form-group">
+                        <label for="rca_city">City <span class="rca-required-asterisk">*</span></label>
+                        <input type="text" name="rca_city" id="rca_city" value="<?php echo esc_attr( $city ); ?>" required readonly style="opacity: 0.6; cursor: not-allowed;">
+                    </div>
+                    <div class="rca-form-group">
+                        <label for="rca_state">State <span class="rca-required-asterisk">*</span></label>
+                        <select name="rca_state" id="rca_state" required disabled style="opacity: 0.6; cursor: not-allowed;">
+                            <option value="">Select State</option>
+                            <?php
+                            $states = array(
+                                'AL' => 'Alabama', 'AK' => 'Alaska', 'AZ' => 'Arizona', 'AR' => 'Arkansas', 'CA' => 'California',
+                                'CO' => 'Colorado', 'CT' => 'Connecticut', 'DE' => 'Delaware', 'FL' => 'Florida', 'GA' => 'Georgia',
+                                'HI' => 'Hawaii', 'ID' => 'Idaho', 'IL' => 'Illinois', 'IN' => 'Indiana', 'IA' => 'Iowa',
+                                'KS' => 'Kansas', 'KY' => 'Kentucky', 'LA' => 'Louisiana', 'ME' => 'Maine', 'MD' => 'Maryland',
+                                'MA' => 'Massachusetts', 'MI' => 'Michigan', 'MN' => 'Minnesota', 'MS' => 'Mississippi', 'MO' => 'Missouri',
+                                'MT' => 'Montana', 'NE' => 'Nebraska', 'NV' => 'Nevada', 'NH' => 'New Hampshire', 'NJ' => 'New Jersey',
+                                'NM' => 'New Mexico', 'NY' => 'New York', 'NC' => 'North Carolina', 'ND' => 'North Dakota', 'OH' => 'Ohio',
+                                'OK' => 'Oklahoma', 'OR' => 'Oregon', 'PA' => 'Pennsylvania', 'RI' => 'Rhode Island', 'SC' => 'South Carolina',
+                                'SD' => 'South Dakota', 'TN' => 'Tennessee', 'TX' => 'Texas', 'UT' => 'Utah', 'VT' => 'Vermont',
+                                'VA' => 'Virginia', 'WA' => 'Washington', 'WV' => 'West Virginia', 'WI' => 'Wisconsin', 'WY' => 'Wyoming',
+                                'DC' => 'District of Columbia', 'PR' => 'Puerto Rico', 'VI' => 'Virgin Islands', 'GU' => 'Guam', 'AS' => 'American Samoa'
+                            );
+                            foreach ( $states as $code => $name ) :
+                                $selected = ( $code === $state ) ? 'selected' : '';
+                                echo '<option value="' . esc_attr( $code ) . '" ' . $selected . '>' . esc_html( $name ) . '</option>';
+                            endforeach;
+                            ?>
+                        </select>
+                        <input type="hidden" name="rca_state" value="<?php echo esc_attr( $state ); ?>">
+                    </div>
+                    <div class="rca-form-group">
+                        <label for="rca_zip_code">Zip Code <span class="rca-required-asterisk">*</span></label>
+                        <input type="text" name="rca_zip_code" id="rca_zip_code" value="<?php echo esc_attr( $zip_code ); ?>" required readonly style="opacity: 0.6; cursor: not-allowed;">
+                    </div>
+                    <div class="rca-form-group full-width">
+                        <label for="rca_license">Driver's License Number <span class="rca-required-asterisk">*</span></label>
+                        <input type="text" name="rca_license" id="rca_license" value="<?php echo esc_attr( $license ); ?>" required readonly style="opacity: 0.6; cursor: not-allowed;">
                     </div>
                     <div class="rca-form-group">
                         <label for="rca_phone">Phone <span class="rca-required-asterisk">*</span></label>

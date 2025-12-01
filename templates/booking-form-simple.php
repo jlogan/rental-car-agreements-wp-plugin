@@ -22,7 +22,16 @@
         </div>
     <?php endif; ?>
 
-    <form action="#" method="POST" class="rca-booking-form" id="rca-car-rental-agreement-form" onsubmit="return false;">
+    <form action="#" method="POST" class="rca-booking-form" id="rca-car-rental-agreement-form" onsubmit="return false;" data-min-booking-days="<?php 
+        $min_booking_days = 7; // Default
+        if ( $vehicle && isset( $vehicle->ID ) ) {
+            $min_booking_days = get_post_meta( $vehicle->ID, '_rca_min_booking_days', true );
+            if ( empty( $min_booking_days ) ) {
+                $min_booking_days = 7;
+            }
+        }
+        echo esc_attr( $min_booking_days ); 
+    ?>">
         <?php wp_nonce_field( 'rca_submit_booking_action', 'rca_booking_nonce' ); ?>
         <input type="hidden" name="vehicle_id" value="<?php echo esc_attr( $vehicle_id ); ?>">
         <input type="hidden" name="rca_is_simple_form" value="1">
@@ -37,8 +46,12 @@
             <h4>CONTACT INFORMATION</h4>
             <div class="rca-form-grid">
                 <div class="rca-form-group">
-                    <label for="rca_fullname">Full Name <span class="rca-required-asterisk">*</span></label>
-                    <input type="text" name="rca_fullname" id="rca_fullname" required minlength="2" maxlength="100" pattern="[A-Za-z\s\-']+" title="Please enter a valid name (letters, spaces, hyphens, and apostrophes only)">
+                    <label for="rca_first_name">First Name <span class="rca-required-asterisk">*</span></label>
+                    <input type="text" name="rca_first_name" id="rca_first_name" required minlength="1" maxlength="50" pattern="[A-Za-z\s\-']+" title="Please enter a valid first name">
+                </div>
+                <div class="rca-form-group">
+                    <label for="rca_last_name">Last Name <span class="rca-required-asterisk">*</span></label>
+                    <input type="text" name="rca_last_name" id="rca_last_name" required minlength="1" maxlength="50" pattern="[A-Za-z\s\-']+" title="Please enter a valid last name">
                 </div>
                 <div class="rca-form-group">
                     <label for="rca_email">Email <span class="rca-required-asterisk">*</span></label>
@@ -48,9 +61,21 @@
                     <label for="rca_phone">Phone <span class="rca-required-asterisk">*</span></label>
                     <input type="tel" name="rca_phone" id="rca_phone" required>
                 </div>
+                <div class="rca-form-group full-width">
+                    <label for="rca_street_address">Street Address <span class="rca-required-asterisk">*</span></label>
+                    <input type="text" name="rca_street_address" id="rca_street_address" required>
+                </div>
                 <div class="rca-form-group">
-                    <label for="rca_driver_state">Driver's State <span class="rca-required-asterisk">*</span></label>
-                    <select name="rca_driver_state" id="rca_driver_state" required>
+                    <label for="rca_apt_unit">Apt/Unit</label>
+                    <input type="text" name="rca_apt_unit" id="rca_apt_unit" maxlength="20">
+                </div>
+                <div class="rca-form-group">
+                    <label for="rca_city">City <span class="rca-required-asterisk">*</span></label>
+                    <input type="text" name="rca_city" id="rca_city" required maxlength="50">
+                </div>
+                <div class="rca-form-group">
+                    <label for="rca_state">State <span class="rca-required-asterisk">*</span></label>
+                    <select name="rca_state" id="rca_state" required>
                         <option value="">Select State</option>
                         <?php
                         $states = array(
@@ -73,13 +98,13 @@
                         ?>
                     </select>
                 </div>
+                <div class="rca-form-group">
+                    <label for="rca_zip_code">Zip Code <span class="rca-required-asterisk">*</span></label>
+                    <input type="text" name="rca_zip_code" id="rca_zip_code" required pattern="[0-9]{5}(-[0-9]{4})?" title="Please enter a valid zip code (12345 or 12345-6789)" maxlength="10">
+                </div>
                 <div class="rca-form-group full-width">
                     <label for="rca_license">Driver's License Number <span class="rca-required-asterisk">*</span></label>
                     <input type="text" name="rca_license" id="rca_license" required>
-                </div>
-                <div class="rca-form-group full-width">
-                    <label for="rca_address">Address <span class="rca-required-asterisk">*</span></label>
-                    <textarea name="rca_address" id="rca_address" rows="2" required></textarea>
                 </div>
             </div>
         </div>
